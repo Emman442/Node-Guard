@@ -1,0 +1,6 @@
+{
+  "name": "NodeGuard",
+  "description": "Decentralized infrastructure SLA arbitration platform where providers stake GEN, clients file disputes, and GenLayer AI validators render verdicts to automatically slash stakes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
