@@ -3,7 +3,7 @@ import { studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 import { parseEther } from "viem";
 
-import { TelemetryReading, TransactionReceipt, ArbitrationVerdict, Client, DisputeEvidence, Agreement, Provider, TelemetrySource, Dispute} from "./types";
+import { TelemetryReading, TransactionReceipt, ArbitrationVerdict, Client, DisputeEvidence, Agreement, Provider, TelemetrySource, Dispute } from "./types";
 // ─── Interfaces (add these to your types file) ─────────────────────────────
 
 
@@ -532,18 +532,13 @@ class NodeGuard {
         }
     }
 
-    async getDisputeEvidence(disputeId: string): Promise<DisputeEvidence> {
-        try {
-            const dispute = await this.client.readContract({
-                address: this.contractAddress,
-                functionName: "get_dispute",
-                args: [disputeId],
-            });
-            return dispute as DisputeEvidence;
-        } catch (error) {
-            console.error("Error fetching dispute evidence:", error);
-            throw new Error("Failed to fetch dispute evidence");
-        }
+    async getDisputeEvidence(evidenceId: string): Promise<DisputeEvidence> {
+        const evidence = await this.client.readContract({
+            address: this.contractAddress,
+            functionName: "get_evidence_item",
+            args: [evidenceId],
+        });
+        return evidence as DisputeEvidence;
     }
 
     async getAllDisputes(): Promise<Dispute[]> {

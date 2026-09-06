@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, ArrowRight, Activity, Coins, FileText, Cpu, AlertTriangle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Provider, NetworkStats, Agreement } from "../lib/contract/types";
 
 interface LandingPageProps {
@@ -14,7 +14,7 @@ interface LandingPageProps {
 export default function LandingPage({
   stats,
   featuredProviders = [],
-  agreements = [], // Default to empty array to prevent map/filter crashes
+  agreements = [],
   onNavigate,
   onConnectWallet,
   isWalletConnected

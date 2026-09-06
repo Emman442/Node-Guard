@@ -1,143 +1,821 @@
-# Sample GenLayer project
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/license/mit/)
-[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/8Jm4v89VAu)
-[![Telegram](https://img.shields.io/badge/Telegram--T.svg?style=social&logo=telegram)](https://t.me/genlayer)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/yeagerai.svg?style=social&label=Follow%20%40GenLayer)](https://x.com/GenLayer)
-[![GitHub star chart](https://img.shields.io/github/stars/yeagerai/genlayer-project-boilerplate?style=social)](https://star-history.com/#yeagerai/genlayer-js)
+# SLAArbitrator
 
-## About
-This project includes the boilerplate code for a GenLayer use case implementation, specifically a football bets game.
+A decentralized SLA enforcement and arbitration protocol built as a **GenLayer Intelligent Contract**.
 
-## What's included
-- An example intelligent contract (Football Bets) with web access and LLM integration
-- **Direct mode tests** — fast, in-memory unit tests with web/LLM mocking (~ms per test)
-- **Integration tests** — full end-to-end tests against GenLayer Studio
-- **Contract linting** — static analysis to catch common contract issues before deployment
-- **CI pipeline** — GitHub Actions workflow for linting and direct tests
-- A production-ready Next.js 15 frontend with TypeScript, TanStack Query, and Radix UI
-- Configuration file template and deployment scripts
+SLAArbitrator allows infrastructure providers to stake GEN as collateral, enter service agreements with clients, and commit to measurable service-level guarantees such as uptime, latency, error rate, and data freshness.
 
-## Requirements
-- Python >= 3.12
-- [GenLayer CLI](https://github.com/genlayerlabs/genlayer-cli) globally installed: `npm install -g genlayer`
-- GenLayer Studio (for integration tests and deployment): Install from [Docs](https://docs.genlayer.com/developers/intelligent-contracts/tooling-setup#using-the-genlayer-studio) or use the hosted [GenLayer Studio](https://studio.genlayer.com/)
+When a client disputes an alleged SLA breach, GenLayer validators independently fetch telemetry and evidence, analyze the incident against the agreed SLA terms, and reach consensus on whether a breach occurred.
 
-## Project Structure
+If a breach is confirmed, the provider's staked GEN can be slashed and paid to the affected client.
 
-```
-contracts/              # Python intelligent contracts
-tests/
-  direct/               # Fast in-memory tests (no Studio required)
-    test_create_bet.py   # Bet creation logic
-    test_resolve_bet.py  # Bet resolution with web/LLM mocks
-    test_views.py        # Read-only view methods
-  integration/           # Full tests against GenLayer Studio
-    test_football_bets.py
-    fixtures.py          # Expected state fixtures
-frontend/               # Next.js 15 app (TypeScript, TanStack Query, Radix UI)
-deploy/                 # TypeScript deployment scripts
-gltest.config.yaml      # Test runner network configuration
-pyproject.toml          # Python/pytest configuration
-.github/workflows/      # CI pipeline
-```
+---
 
-## Quick Start
+## The Problem
 
-### 1. Set up Python environment
+Decentralized infrastructure creates an important trust problem.
 
-```shell
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+A client using an RPC node, GPU cluster, indexer, or API needs to know:
 
-### 2. Lint your contracts
+* Was the service actually available?
+* Did it meet the agreed uptime?
+* Was latency within the promised limits?
+* Were error rates acceptable?
+* Was the provider serving sufficiently fresh data?
+* What happens when the provider disputes a breach?
 
-Run the GenVM linter to catch issues before deployment:
+Traditional SLA systems rely heavily on centralized monitoring providers and centralized arbitration.
 
-```shell
-genvm-lint check contracts/football_bets.py
-```
+SLAArbitrator moves the arbitration layer on-chain using **GenLayer Intelligent Contracts**, allowing AI validators to evaluate real-world telemetry and evidence and reach a decentralized consensus.
 
-The linter catches:
-- Forbidden imports and non-deterministic calls
-- Invalid storage types (must use `TreeMap`, `DynArray`, `u256`, etc.)
-- Missing decorators and return type annotations
-- Non-deterministic operations outside equivalence principle blocks
-- And [20+ other rules](https://github.com/genlayerlabs/genvm-linter)
+---
 
-### 3. Run direct mode tests
+## How It Works
 
-Direct mode tests run contracts in-memory without needing GenLayer Studio. They use mocks for web requests and LLM calls, giving you fast feedback (~milliseconds per test):
+The protocol follows this lifecycle:
 
-```shell
-pytest tests/direct/ -v
-```
-
-Direct mode features used in these tests:
-- `direct_deploy("contracts/file.py")` — deploy contract in memory
-- `direct_vm.sender = address` — set transaction sender
-- `direct_vm.mock_web(pattern, response)` — mock HTTP/render calls
-- `direct_vm.mock_llm(pattern, response)` — mock LLM responses
-- `direct_vm.expect_revert("message")` — assert expected failures
-- `direct_vm.clear_mocks()` — reset mocks between calls
-
-### 4. Deploy the contract
-
-1. Choose your network: `genlayer network`
-2. Deploy: `genlayer deploy` (runs the script in `/deploy/deployScript.ts`)
-
-### 5. Run integration tests
-
-Integration tests deploy the contract to GenLayer Studio and test with real consensus:
-
-```shell
-gltest tests/integration/ -v -s
+```text
+Provider
+   │
+   │ Stake GEN
+   ▼
+Provider Registry
+   │
+   │
+   ▼
+Client creates SLA Agreement
+   │
+   │ Pays first month's fee
+   ▼
+Active Agreement
+   │
+   ├── Telemetry monitoring
+   │
+   └── Service operation
+   │
+   ▼
+SLA incident occurs
+   │
+   ▼
+Client files dispute
+   │
+   ▼
+Evidence submitted
+   │
+   ▼
+GenLayer AI Arbitration
+   │
+   ├── Fetch telemetry
+   ├── Fetch evidence
+   ├── Analyze SLA terms
+   └── Reach validator consensus
+   │
+   ▼
+Arbitration Verdict
+   │
+   ├── No breach
+   │
+   ├── Partial breach
+   │
+   ├── Breach confirmed
+   │
+   └── Inconclusive
+   │
+   ▼
+If breach confirmed
+   │
+   ├── Provider stake slashed
+   ├── Provider reputation reduced
+   └── Client receives compensation
 ```
 
-These require GenLayer Studio running (local or hosted).
+---
 
-### 6. Set up the frontend
+# Core Concepts
 
-1. Copy `frontend/.env.example` to `frontend/.env`
-2. Add your deployed contract address as `NEXT_PUBLIC_CONTRACT_ADDRESS`
-3. Run:
+## Providers
 
-```shell
-cd frontend
-npm install
-npm run dev
+Infrastructure providers register with the protocol by staking GEN.
+
+The stake acts as economic collateral against SLA violations.
+
+Each provider has a reputation score that starts at `100` and changes based on arbitration outcomes.
+
+Supported provider services include:
+
+* RPC nodes
+* GPU clusters
+* Indexers
+* APIs
+* Other infrastructure services
+
+### Provider Lifecycle
+
+```text
+Register
+   ↓
+Stake GEN
+   ↓
+Create agreements
+   ↓
+Provide infrastructure
+   ↓
+Maintain SLA
+   ↓
+Withdraw stake after agreements end
 ```
 
-The app will be available at http://localhost:3000/.
+Providers can also add additional stake, update their profile, or exit by withdrawing their collateral once they have no active agreements.
 
-## How the Football Bets Contract Works
+---
 
-1. **Creating Bets**: Users bet on a football match by providing the game date, teams, and predicted winner.
-2. **Resolving Bets**: After the match, the contract fetches results from BBC Sport, uses an LLM to extract the score, and validates via the equivalence principle.
-3. **Points**: Correct predictions earn points. Users can query their points or the leaderboard.
+# Clients
 
-## Testing Strategy
+Clients create service agreements with registered providers.
 
-| Test Type | Command | Speed | Requires Studio |
-|-----------|---------|-------|-----------------|
-| **Lint** | `genvm-lint check contracts/*.py` | ~250ms | No |
-| **Direct** | `pytest tests/direct/ -v` | ~ms/test | No |
-| **Integration** | `gltest tests/integration/ -v -s` | ~min/test | Yes |
+A client specifies exactly what the provider is expected to deliver.
 
-**Recommended workflow:**
-1. Lint after every contract change
-2. Run direct tests frequently during development
-3. Run integration tests before deployment to verify consensus behavior
+For example:
 
-For AI coding agents (Claude Code, Cursor, etc.), the linter and direct tests provide the fast feedback loop needed for iterative development without requiring a running Studio instance.
+```text
+Service: Ethereum RPC
+Required uptime: 99.9%
+Maximum latency: 200ms
+Maximum error rate: 0.1%
+Maximum blocks behind: 2
+Measurement region: global
+```
 
-## Community
-- **[Discord](https://discord.gg/8Jm4v89VAu)**: Discussions, support, and announcements
-- **[Telegram](https://t.me/genlayer)**: Informal chats and quick updates
+The client also provides plain-English SLA terms describing the agreement.
 
-## Documentation
-For detailed information, see our [documentation](https://docs.genlayer.com/).
+---
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# SLA Agreements
+
+An agreement connects a client and provider and defines the rules used during arbitration.
+
+Each agreement contains:
+
+* Provider
+* Client
+* Service name
+* Service type
+* Service endpoint
+* Uptime requirement
+* Maximum latency
+* Maximum error rate
+* Data freshness requirement
+* Measurement region
+* Plain-English SLA
+* Penalty per incident
+* Maximum penalty
+* Monthly fee
+* Duration
+* Approved telemetry sources
+
+The provider must have enough staked GEN to cover the agreement's maximum possible penalty.
+
+---
+
+# Telemetry Sources
+
+SLAArbitrator uses registered telemetry sources to provide external infrastructure data to the Intelligent Contract.
+
+Only the protocol administrator can register telemetry sources.
+
+Supported source types include:
+
+* `uptime_api`
+* `latency_api`
+* `rpc_health`
+* `public_dashboard`
+* `block_explorer`
+
+Example:
+
+```text
+Source:
+Ethereum RPC Monitor
+
+Type:
+rpc_health
+
+URL:
+https://monitor.example.com/ethereum
+
+Description:
+Independent monitoring endpoint for RPC availability and latency.
+```
+
+Multiple telemetry sources can be attached to an agreement.
+
+This allows arbitration to use independent monitoring data rather than relying exclusively on claims made by either party.
+
+---
+
+# Telemetry Recording
+
+Anyone can submit a telemetry reading for an active agreement.
+
+The contract's AI layer fetches the supplied telemetry URL as well as registered monitoring sources.
+
+The AI extracts:
+
+* Uptime percentage
+* Average latency
+* Maximum latency
+* Error rate
+* Blocks behind latest
+
+The extracted metrics are stored on-chain as a `TelemetryReading`.
+
+Example:
+
+```json
+{
+  "uptime_percentage": "99.72",
+  "avg_latency_ms": "148",
+  "max_latency_ms": "842",
+  "error_rate": "0.08",
+  "blocks_behind": "1"
+}
+```
+
+The original telemetry URL is retained so the underlying data can be referenced later.
+
+---
+
+# Disputes
+
+If a client believes a provider violated an SLA, they can file a dispute.
+
+A dispute includes:
+
+* Agreement ID
+* Incident start
+* Incident end
+* Description
+* Business impact
+* Claimant
+* Respondent
+
+Example:
+
+```text
+Incident:
+2026-09-05 13:00 → 2026-09-05 14:00
+
+Claim:
+RPC service experienced prolonged downtime.
+
+Impact:
+Transactions could not be submitted during the incident.
+```
+
+The agreement moves into the `disputed` state.
+
+---
+
+# Evidence
+
+Both the client and provider can submit evidence during the dispute.
+
+Supported evidence types include:
+
+* `telemetry_url`
+* `transaction_proof`
+* `log_url`
+* `screenshot_url`
+* `monitoring_dashboard`
+
+Evidence is stored on-chain as a `DisputeEvidence` record while the underlying data can remain accessible through its URL.
+
+This allows both sides of a dispute to provide information before arbitration.
+
+---
+
+# AI Arbitration
+
+The core of SLAArbitrator is the `render_verdict()` function.
+
+When arbitration is triggered, the Intelligent Contract gathers:
+
+### SLA Information
+
+* Plain-English SLA
+* Uptime requirement
+* Latency requirement
+* Error-rate requirement
+* Data-freshness requirement
+
+### Incident Information
+
+* Incident timeframe
+* Client's description
+* Claimed business impact
+
+### Telemetry
+
+The contract fetches data from the agreement's registered monitoring sources.
+
+### Evidence
+
+The contract also fetches evidence submitted by both parties.
+
+The information is passed to an AI arbitrator that evaluates whether the provider violated the agreed SLA.
+
+---
+
+# GenLayer Consensus
+
+The arbitration itself is executed through GenLayer's non-deterministic execution and Equivalence Principle.
+
+The arbitration logic performs external web requests and LLM evaluation.
+
+Conceptually:
+
+```text
+Telemetry + Evidence + SLA
+             │
+             ▼
+       AI Arbitration
+             │
+             ▼
+    GenLayer Validators
+             │
+             ▼
+     Equivalence Check
+             │
+             ▼
+       Consensus Result
+```
+
+Validators independently evaluate the arbitration task.
+
+The Equivalence Principle allows semantically equivalent results to reach consensus even when individual AI outputs are not byte-for-byte identical.
+
+The final arbitration result is then persisted by the contract.
+
+---
+
+# Arbitration Verdicts
+
+The arbitrator can produce four outcomes:
+
+### `breach_confirmed`
+
+The available evidence clearly demonstrates that the provider violated the SLA.
+
+### `no_breach`
+
+The available evidence indicates that the provider met the SLA requirements.
+
+### `partial_breach`
+
+Some SLA requirements were violated while others were satisfied.
+
+### `inconclusive`
+
+The available telemetry or evidence is insufficient to reliably determine whether a breach occurred.
+
+Each verdict records:
+
+* Verdict
+* Breach type
+* Violated SLA term
+* Measured uptime
+* Measured latency
+* Measured error rate
+* Reasoning
+* Confidence
+* Slash amount
+* Timestamp
+* Arbitrator
+
+---
+
+# Automated Slashing
+
+When a breach is confirmed, the provider's collateral can be slashed.
+
+The protocol supports different penalty levels based on breach severity.
+
+```text
+Minor breach
+     ↓
+Penalty per incident
+
+Moderate breach
+     ↓
+2 × penalty
+
+Severe breach / total outage
+     ↓
+Maximum penalty
+
+Latency-only breach
+     ↓
+Reduced penalty
+
+Data freshness breach
+     ↓
+Penalty per incident
+```
+
+The final slash is capped by the agreement's `max_penalty_per_dispute`.
+
+Slashed GEN is transferred to the affected client.
+
+---
+
+# Reputation
+
+Providers maintain an on-chain reputation score.
+
+New providers begin with:
+
+```text
+Reputation = 100
+```
+
+When a breach results in a slash:
+
+```text
+Reputation decreases
+```
+
+When a dispute does not result in a breach:
+
+```text
+Reputation can recover gradually
+```
+
+This creates an additional incentive for providers to maintain reliable infrastructure.
+
+---
+
+# Appeals
+
+Providers can appeal a breach verdict.
+
+An appeal can include:
+
+* Appeal context
+* Additional evidence
+
+The contract runs a second AI arbitration using the original verdict and the newly submitted information.
+
+The appeal has a high bar for overturning the original decision.
+
+Possible outcomes include:
+
+* Verdict upheld
+* Verdict overturned
+* Verdict modified
+
+If a breach is overturned, the original slash can be restored to the provider's stake and their reputation can be adjusted accordingly.
+
+---
+
+# Contract Architecture
+
+The contract is organized around several core data structures.
+
+## Provider
+
+Stores:
+
+```text
+wallet
+name
+description
+website
+staked_gen
+active_agreements
+total_agreements
+total_slashes
+total_slashed_gen
+reputation_score
+registered_at
+status
+```
+
+## Client
+
+Stores:
+
+```text
+wallet
+name
+total_agreements
+total_disputes_filed
+total_disputes_won
+registered_at
+```
+
+## SLATerms
+
+Stores:
+
+```text
+uptime_percentage
+max_latency_ms
+max_error_rate
+data_freshness_blocks
+measurement_region
+plain_english_sla
+penalty_per_incident
+max_penalty_per_dispute
+```
+
+## Agreement
+
+Stores:
+
+```text
+agreement_id
+provider
+client
+service_name
+service_type
+service_endpoint
+sla_terms
+telemetry_source_ids
+stake_locked
+monthly_fee_gen
+start_date
+end_date
+status
+dispute_ids
+created_at
+```
+
+## TelemetryReading
+
+Stores:
+
+```text
+reading_id
+agreement_id
+timeframe_start
+timeframe_end
+uptime_percentage
+avg_latency_ms
+max_latency_ms
+error_rate
+blocks_behind
+raw_data_url
+recorded_at
+recorded_by
+```
+
+## Dispute
+
+Stores:
+
+```text
+dispute_id
+agreement_id
+claimant
+respondent
+incident_start
+incident_end
+description
+impact_description
+status
+verdict_id
+appeal_verdict_id
+slash_executed
+slashed_amount
+filed_at
+resolved_at
+evidence_ids
+```
+
+## ArbitrationVerdict
+
+Stores:
+
+```text
+verdict_id
+dispute_id
+verdict
+breach_type
+sla_term_violated
+measured_uptime
+measured_latency
+measured_error_rate
+reasoning
+confidence
+slash_amount
+is_appeal
+rendered_at
+rendered_by
+```
+
+---
+
+# Main Contract Functions
+
+## Provider Management
+
+```python
+register_provider()
+add_stake()
+withdraw_stake()
+update_provider_profile()
+```
+
+## Client Management
+
+```python
+update_client_name()
+```
+
+## Telemetry Sources
+
+```python
+register_telemetry_source()
+get_telemetry_source()
+get_all_telemetry_sources()
+```
+
+## Agreements
+
+```python
+create_agreement()
+terminate_agreement()
+get_agreement()
+get_all_agreements()
+get_provider_agreements()
+get_client_agreements()
+```
+
+## Telemetry
+
+```python
+record_telemetry()
+get_telemetry_reading()
+```
+
+## Disputes
+
+```python
+file_dispute()
+submit_evidence()
+get_dispute()
+get_all_disputes()
+get_evidence_item()
+```
+
+## Arbitration
+
+```python
+render_verdict()
+get_verdict()
+```
+
+## Appeals
+
+```python
+appeal_verdict()
+```
+
+## Administration
+
+```python
+admin_suspend_provider()
+admin_update_min_stake()
+```
+
+---
+
+# Example
+
+Imagine an infrastructure provider operates an Ethereum RPC service.
+
+The provider registers with:
+
+```text
+Minimum stake: 100 GEN
+```
+
+A client creates an agreement:
+
+```text
+Service:
+Ethereum RPC
+
+Uptime:
+99.9%
+
+Maximum latency:
+200ms
+
+Maximum error rate:
+0.1%
+
+Maximum penalty:
+50 GEN
+```
+
+The provider's 100 GEN stake acts as collateral.
+
+Later, the RPC service experiences an outage.
+
+The client files a dispute:
+
+```text
+Incident:
+14:00 → 15:00 UTC
+
+Claim:
+RPC service was unavailable for a significant portion of the incident.
+```
+
+The client submits monitoring evidence.
+
+The provider can also submit logs or other evidence.
+
+The client then triggers:
+
+```python
+render_verdict("dispute_1")
+```
+
+GenLayer validators independently evaluate the telemetry and evidence.
+
+Suppose the consensus result is:
+
+```json
+{
+  "verdict": "breach_confirmed",
+  "breach_type": "uptime",
+  "sla_term_violated": "99.9% uptime",
+  "measured_uptime": "96.8",
+  "confidence": "high",
+  "slash_amount": 50
+}
+```
+
+The protocol then:
+
+```text
+Provider stake
+100 GEN
+   │
+   │ 50 GEN slash
+   ▼
+50 GEN remaining
+
+50 GEN
+   │
+   ▼
+Client compensation
+```
+
+The provider's reputation is also reduced.
+
+---
+
+# Technology
+
+SLAArbitrator is built using:
+
+* **GenLayer Intelligent Contracts**
+* Python
+* GenVM
+* GenLayer non-deterministic execution
+* Equivalence Principle
+* `gl.nondet.web.get`
+* `gl.nondet.exec_prompt`
+* GEN staking and transfers
+
+---
+
+# Security & Trust Model
+
+SLAArbitrator does not assume that either the client or provider is automatically truthful.
+
+Instead, arbitration considers:
+
+1. The SLA agreed by both parties
+2. The incident timeframe
+3. Independent telemetry
+4. Evidence submitted by both parties
+5. AI analysis
+6. GenLayer validator consensus
+
+The goal is to make SLA enforcement **data-driven, economically enforced, and decentralized**.
+
+---
+
+# Current Design Considerations
+
+The protocol currently relies on externally accessible telemetry endpoints and evidence URLs.
+
+Web content fetched by the Intelligent Contract is intentionally truncated before being passed into AI evaluation to control execution size.
+
+Telemetry accuracy therefore depends partly on the quality and availability of registered monitoring sources.
+
+The system is designed around the principle that **multiple independent sources and decentralized AI consensus can provide a stronger arbitration layer than relying on a single centralized authority**.
+

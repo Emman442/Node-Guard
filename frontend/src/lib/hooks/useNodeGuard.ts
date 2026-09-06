@@ -5,22 +5,21 @@ import { useMemo } from "react";
 import NodeGuard from "@/src/lib/contract/NodeGuard";
 import { getContractAddress } from "../genlayer/client";
 import { toast } from "sonner";
-import { 
-  TelemetryReading, 
-  TelemetrySource, 
-  DisputeEvidence, 
-  Agreement, 
-  Provider, 
-  Client, 
-  ArbitrationVerdict, 
+import {
+  TelemetryReading,
+  TelemetrySource,
+  DisputeEvidence,
+  Agreement,
+  Provider,
+  Client,
+  ArbitrationVerdict,
   FullDispute,
   Dispute
 } from "../contract/types";
 import { getAddress } from "viem";
-import { useWallet} from "../genlayer/wallet";
+import { useWallet } from "../genlayer/wallet";
 
 
-// ─── Core Hook: Hook Up NodeGuard Class ──────────────────────────────────────
 export function useNodeGuardContract(): NodeGuard | null {
   const contractAddress = getContractAddress();
   const { address: rawAddress } = useWallet();
@@ -34,7 +33,6 @@ export function useNodeGuardContract(): NodeGuard | null {
   }, [contractAddress, address]);
 }
 
-// ─── Read Queries: Providers & Clients ────────────────────────────────────────
 
 export function useFetchProvider(providerWallet: string | null) {
   const contract = useNodeGuardContract();
@@ -77,7 +75,6 @@ export function useFetchClient(clientWallet: string | null) {
   });
 }
 
-// ─── Read Queries: Agreements ───────────────────────────────────────────────
 
 export function useFetchAgreement(agreementId: string | null) {
   const contract = useNodeGuardContract();
@@ -134,7 +131,7 @@ export function useFetchClientAgreements(wallet: string | null) {
   });
 }
 
-// ─── Read Queries: Telemetry ──────────────────────────────────────────────────
+
 
 export function useFetchTelemetryReading(readingId: string | null) {
   const contract = useNodeGuardContract();
@@ -177,7 +174,6 @@ export function useFetchAllTelemetrySources() {
   });
 }
 
-// ─── Read Queries: Disputes & Verdicts ────────────────────────────────────────
 
 export function useFetchDispute(disputeId: string | null) {
   const contract = useNodeGuardContract();
@@ -219,6 +215,20 @@ export function useFetchAllDisputes() {
   });
 }
 
+export function useFetchDisputeEvidence(evidenceId: string | null) {
+  const contract = useNodeGuardContract();
+
+  return useQuery<DisputeEvidence, Error>({
+    queryKey: ["dispute-evidence", evidenceId],
+    queryFn: async () => {
+      if (!evidenceId) throw new Error("Evidence ID not provided");
+      if (!contract) throw new Error("Contract not initialized");
+      return await contract.getDisputeEvidence(evidenceId);
+    },
+    enabled: !!evidenceId && !!contract,
+  });
+}
+
 export function useFetchVerdict(verdictId: string | null) {
   const contract = useNodeGuardContract();
 
@@ -246,7 +256,6 @@ export function useFetchMinStake() {
   });
 }
 
-// ─── Provider & Client Mutations ─────────────────────────────────────────────
 
 export function useRegisterProvider() {
   const contract = useNodeGuardContract();
@@ -290,11 +299,9 @@ export function useAddStake() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["providers"] });
       await queryClient.invalidateQueries({ queryKey: ["provider"] });
-      toast.success("Stake added successfully!");
     },
     onError: (error) => {
       console.error(error);
-      toast.error("Failed to add stake.");
     },
   });
 }
@@ -315,7 +322,6 @@ export function useWithdrawStake() {
     },
     onError: (error) => {
       console.error(error);
-      toast.error("Failed to withdraw stake.");
     },
   });
 }
@@ -343,7 +349,6 @@ export function useUpdateProviderProfile() {
     },
     onError: (error) => {
       console.error(error);
-      toast.error("Failed to update profile.");
     },
   });
 }
@@ -359,16 +364,14 @@ export function useUpdateClientName() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["client"] });
-      toast.success("Client name updated!");
     },
     onError: (error) => {
       console.error(error);
-      toast.error("Failed to update client name.");
+
     },
   });
 }
 
-// ─── Agreement Mutations ─────────────────────────────────────────────────────
 
 export function useCreateAgreement() {
   const contract = useNodeGuardContract();
@@ -399,11 +402,9 @@ export function useCreateAgreement() {
       await queryClient.invalidateQueries({ queryKey: ["agreements"] });
       await queryClient.invalidateQueries({ queryKey: ["provider-agreements"] });
       await queryClient.invalidateQueries({ queryKey: ["client-agreements"] });
-      toast.success("SLA Agreement created successfully!");
     },
     onError: (error) => {
       console.error(error);
-      toast.error("Failed to create agreement.");
     },
   });
 }
@@ -429,7 +430,6 @@ export function useTerminateAgreement() {
   });
 }
 
-// ─── Telemetry Mutations ─────────────────────────────────────────────────────
 
 export function useRegisterTelemetrySource() {
   const contract = useNodeGuardContract();
@@ -490,7 +490,6 @@ export function useRecordTelemetry() {
   });
 }
 
-// ─── Dispute Mutations ────────────────────────────────────────────────────────
 
 export function useFileDispute() {
   const contract = useNodeGuardContract();
@@ -611,7 +610,6 @@ export function useAppealVerdict() {
   });
 }
 
-// ─── Admin Mutations ─────────────────────────────────────────────────────────
 
 export function useAdminSuspendProvider() {
   const contract = useNodeGuardContract();
@@ -682,12 +680,9 @@ export function useFetchFullDispute(disputeId: string) {
         )
       );
 
-      const telemetryReadings = await Promise.all(
-        agreement.telemetry_source_ids.map(id =>
-          contract.getTelemetryReading(id)
-        )
+      const telemetrySources = await Promise.all(
+        agreement.telemetry_source_ids.map((id) => contract.getTelemetrySource(id))
       );
-
       const verdict =
         dispute.verdict_id
           ? await contract.getVerdict(dispute.verdict_id)
@@ -704,7 +699,7 @@ export function useFetchFullDispute(disputeId: string) {
         claimant,
         respondent,
         evidence,
-        telemetryReadings,
+        telemetrySources,
         verdict,
         appealVerdict,
       };

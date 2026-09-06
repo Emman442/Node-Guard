@@ -4,8 +4,8 @@ import { Provider, Agreement, Dispute } from "../lib/contract/types";
 
 interface ProvidersPageProps {
   providers: Provider[];
-  agreements?: Agreement[]; // Optional fallback to prevent breaking other pages
-  disputes?: Dispute[];     // Optional fallback to calculate dynamic metrics
+  agreements?: Agreement[];
+  disputes?: Dispute[];
   onNavigate: (view: string, params?: any) => void;
   onCopyText: (text: string, label: string) => void;
 }
@@ -21,24 +21,21 @@ export default function ProvidersPage({
   const [sortBy, setSortBy] = useState<string>("HIGHEST STAKE");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Clean uppercase labels for UI filtering
+
   const serviceTypes = ["ALL", "RPC NODE", "GPU CLUSTER", "INDEXER", "API", "OTHER"];
 
-  // Helper function to dynamically extract unique service types for a provider based on agreements
   const getProviderServices = (providerWallet: string): string[] => {
     const providerAgreements = agreements.filter(
       (a) => a.provider.toLowerCase() === providerWallet.toLowerCase()
     );
     const uniqueTypes = Array.from(new Set(providerAgreements.map((a) => a.service_type)));
-    return uniqueTypes.length > 0 ? uniqueTypes : ["other"]; // Fallback to 'other' if no agreements exist yet
+    return uniqueTypes.length > 0 ? uniqueTypes : ["other"];
   };
 
-  // Helper function to get total disputes for a provider
   const getProviderDisputesCount = (providerWallet: string): number => {
     return disputes.filter((d) => d.respondent.toLowerCase() === providerWallet.toLowerCase()).length;
   };
 
-  // Filtering
   const filtered = providers.filter((p) => {
     const pServices = getProviderServices(p.wallet);
     const matchesType =
@@ -53,7 +50,6 @@ export default function ProvidersPage({
     return matchesType && matchesQuery;
   });
 
-  // Sorting
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === "HIGHEST STAKE") {
       return b.staked_gen - a.staked_gen;
@@ -67,7 +63,6 @@ export default function ProvidersPage({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Title Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-[#1a1a1a] pb-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-heading font-bold text-white tracking-tight uppercase">
@@ -84,10 +79,7 @@ export default function ProvidersPage({
           REGISTER AS PROVIDER
         </button>
       </div>
-
-      {/* Filter and Control Row */}
       <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center bg-[#090909] border border-[#1a1a1a] p-4">
-        {/* Pills */}
         <div className="flex flex-wrap gap-2">
           {serviceTypes.map((type) => (
             <button

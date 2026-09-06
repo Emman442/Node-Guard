@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Coins, FileText, AlertTriangle, ShieldCheck, ArrowRight, TrendingUp, Sparkles, RefreshCw } from "lucide-react";
-import { Provider, Agreement, Dispute } from "../types.ts";
+import { FileText, AlertTriangle, ShieldCheck, RefreshCw } from "lucide-react";
+import { Provider, Agreement, Dispute } from "../lib/contract/types";
 
 interface DashboardPageProps {
   connectedWallet: string;
@@ -46,19 +46,51 @@ export default function DashboardPage({
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active": return "text-[#06b6d4] border-[#06b6d4]/30";
-      case "Disputed": return "text-[#f59e0b] border-[#f59e0b]/30";
-      case "Terminated": return "text-[#737373] border-[#737373]/30";
-      case "Suspended": return "text-[#dc2626] border-[#dc2626]/30";
-      case "Resolved": return "text-[#22c55e] border-[#22c55e]/30";
-      default: return "text-[#737373] border-[#1a1a1a]";
+    switch ((status || "").toLowerCase()) {
+      case "active":
+        return "text-[#06b6d4] border-[#06b6d4]/30";
+      case "disputed":
+      case "open":
+      case "under_review":
+        return "text-[#f59e0b] border-[#f59e0b]/30";
+      case "terminated":
+      case "expired":
+        return "text-[#737373] border-[#737373]/30";
+      case "suspended":
+        return "text-[#dc2626] border-[#dc2626]/30";
+      case "resolved":
+      case "verdict_rendered":
+      case "appealed":
+        return "text-[#22c55e] border-[#22c55e]/30";
+      default:
+        return "text-[#737373] border-[#1a1a1a]";
     }
   };
 
+  const formatStatus = (status: string) => (status || "").replaceAll("_", " ");
+
+  const shortAddr = (addr?: string) => {
+    if (!addr) return "—";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
+  };
+
+  const wonDisputes = clientDisputes.filter(
+    (d) => d.slash_executed || Number(d.slashed_amount) > 0
+  ).length;
+
+  const lifetimeSlashed = providerDisputes.reduce(
+    (sum, d) => sum + Number(d.slashed_amount || 0),
+    0
+  );
+
   return (
     <div className="space-y-8 pb-16">
-      {/* Title Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-[#1a1a1a] pb-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-heading font-bold text-white tracking-tight uppercase">
@@ -76,7 +108,6 @@ export default function DashboardPage({
         </button>
       </div>
 
-      {/* Role Tab Selector */}
       <div className="flex border-b border-[#1a1a1a] gap-2">
         <button
           onClick={() => setActiveRoleTab("client")}
@@ -101,9 +132,7 @@ export default function DashboardPage({
       </div>
 
       {activeRoleTab === "client" ? (
-        /* ==================== CLIENT VIEWS ==================== */
         <div className="space-y-10">
-          {/* Client Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-3">
               <div className="flex justify-between items-center text-[#737373]">
@@ -111,7 +140,7 @@ export default function DashboardPage({
                 <FileText className="w-4 h-4 text-[#06b6d4]" />
               </div>
               <div className="text-3xl font-mono font-bold text-white">
-                {clientAgreements.filter(a => a.status === "Active").length}
+                {clientAgreements.filter((a) => a.status === "active").length}
               </div>
               <div className="text-[10px] text-[#3d3d3d] font-mono uppercase">
                 GUARANTEEING INFRA SLA SERVICES
@@ -137,7 +166,7 @@ export default function DashboardPage({
                 <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
               </div>
               <div className="text-3xl font-mono font-bold text-[#22c55e]">
-                {clientDisputes.filter(d => d.verdict?.status === "Breach Confirmed").length}
+                {wonDisputes}
               </div>
               <div className="text-[10px] text-[#3d3d3d] font-mono uppercase">
                 AUTOMATIC SLASH TRANSFERS COMPLETED
@@ -145,7 +174,6 @@ export default function DashboardPage({
             </div>
           </div>
 
-          {/* Client Agreements Table */}
           <div className="space-y-4">
             <h2 className="text-xl font-heading font-bold uppercase tracking-tight text-white flex items-center gap-2">
               &gt; CLIENT SERVICE AGREEMENTS
@@ -175,28 +203,28 @@ export default function DashboardPage({
                   </thead>
                   <tbody>
                     {clientAgreements.map((a) => (
-                      <tr key={a.id} className="border-b border-[#131313] hover:bg-[#131313]/20">
+                      <tr key={a.agreement_id} className="border-b border-[#131313] hover:bg-[#131313]/20">
                         <td className="p-4">
-                          <div className="font-heading text-sm font-bold text-white uppercase">{a.name}</div>
-                          <div className="text-[10px] text-[#737373] mt-0.5">{a.id} • {a.type}</div>
+                          <div className="font-heading text-sm font-bold text-white uppercase">{a.service_name}</div>
+                          <div className="text-[10px] text-[#737373] mt-0.5">
+                            {a.agreement_id} • {a.service_type}
+                          </div>
                         </td>
-                        <td className="p-4 text-[#737373]">
-                          {a.providerWallet.slice(0, 6)}...{a.providerWallet.slice(-4)}
-                        </td>
+                        <td className="p-4 text-[#737373]">{shortAddr(a.provider)}</td>
                         <td className="p-4">
-                          Uptime &gt;= {a.requirements.uptimeRequired}% • Max Latency &lt;= {a.requirements.maxLatency}ms
+                          Uptime &gt;= {a.sla_terms?.uptime_percentage}% • Max Latency &lt;= {a.sla_terms?.max_latency_ms}ms
                         </td>
                         <td className="p-4 text-[#06b6d4] font-bold">
-                          {a.monthlyFee} GEN
+                          {a.monthly_fee_gen} GEN
                         </td>
                         <td className="p-4">
                           <span className={`inline-block px-2.5 py-0.5 border text-[10px] font-bold uppercase ${getStatusColor(a.status)}`}>
-                            {a.status}
+                            {formatStatus(a.status)}
                           </span>
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => onNavigate("agreement-detail", { id: a.id })}
+                            onClick={() => onNavigate("agreement-detail", { id: a.agreement_id })}
                             className="border border-[#1a1a1a] hover:border-[#06b6d4] hover:text-[#06b6d4] text-white px-3 py-1.5 uppercase font-bold text-[10px] cursor-pointer"
                           >
                             MANAGE
@@ -210,7 +238,6 @@ export default function DashboardPage({
             </div>
           </div>
 
-          {/* Client Recent Disputes Table */}
           <div className="space-y-4">
             <h2 className="text-xl font-heading font-bold uppercase tracking-tight text-white">
               &gt; SLA DISPUTES RECORD
@@ -227,52 +254,35 @@ export default function DashboardPage({
                       <th className="p-4 uppercase">DISPUTE ID</th>
                       <th className="p-4 uppercase">AGREEMENT</th>
                       <th className="p-4 uppercase">STATUS</th>
-                      <th className="p-4 uppercase">VERDICT STATUS</th>
-                      <th className="p-4 uppercase">REIMBURSEMENT / PENALTY</th>
+                      <th className="p-4 uppercase">SLASH</th>
                       <th className="p-4 uppercase text-right">ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
                     {clientDisputes.map((d) => (
-                      <tr key={d.id} className="border-b border-[#131313] hover:bg-[#131313]/20">
-                        <td className="p-4 font-bold text-[#06b6d4]">
-                          #{d.id}
+                      <tr key={d.dispute_id} className="border-b border-[#131313] hover:bg-[#131313]/20">
+                        <td className="p-4 font-bold text-[#06b6d4]">#{d.dispute_id}</td>
+                        <td className="p-4">
+                          <span className="text-white">Agreement #{d.agreement_id}</span>
+                          <div className="text-[10px] text-[#737373] mt-0.5">
+                            Filed: {formatDate(d.filed_at)}
+                          </div>
                         </td>
                         <td className="p-4">
-                          <span className="text-white">Agreement #{d.agreementId}</span>
-                          <div className="text-[10px] text-[#737373] mt-0.5">Filed: {new Date(d.createdAt).toLocaleDateString()}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`inline-block px-2 py-0.5 border text-[10px] uppercase font-bold ${
-                            d.status === "Open" ? "text-cyan-400 border-cyan-400/30" :
-                            d.status === "Under Review" ? "text-amber-500 border-amber-500/30" :
-                            "text-green-500 border-green-500/30"
-                          }`}>
-                            {d.status}
+                          <span className={`inline-block px-2 py-0.5 border text-[10px] uppercase font-bold ${getStatusColor(d.status)}`}>
+                            {formatStatus(d.status)}
                           </span>
                         </td>
                         <td className="p-4">
-                          {d.verdict ? (
-                            <span className={`font-bold ${
-                              d.verdict.status === "Breach Confirmed" ? "text-red-500" :
-                              d.verdict.status === "Partial Breach" ? "text-amber-500" : "text-green-500"
-                            }`}>
-                              {d.verdict.status.toUpperCase()}
-                            </span>
-                          ) : (
-                            <span className="text-[#3d3d3d] uppercase">PENDING ARBITRATION</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          {d.verdict && d.verdict.slashExecuted > 0 ? (
-                            <span className="text-red-500 font-bold font-mono">+{d.verdict.slashExecuted} GEN</span>
+                          {Number(d.slashed_amount) > 0 ? (
+                            <span className="text-red-500 font-bold font-mono">+{d.slashed_amount} GEN</span>
                           ) : (
                             <span className="text-[#3d3d3d]">-</span>
                           )}
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => onNavigate("dispute-detail", { id: d.id })}
+                            onClick={() => onNavigate("dispute-detail", { id: d.dispute_id })}
                             className="border border-[#1a1a1a] hover:border-[#06b6d4] hover:text-[#06b6d4] text-white px-3 py-1.5 uppercase font-bold text-[10px] cursor-pointer"
                           >
                             VIEW DETAILS
@@ -287,14 +297,12 @@ export default function DashboardPage({
           </div>
         </div>
       ) : (
-        /* ==================== PROVIDER VIEWS ==================== */
         <div className="space-y-10">
           {!providerProfile ? (
-            /* Unregistered state */
             <div className="bg-[#0e0e0e] border border-[#dc2626]/30 p-8 text-center space-y-6 max-w-2xl mx-auto">
               <div className="text-red-500 font-mono text-sm uppercase">&gt; PROVIDER COLLATERAL INSUFFICIENT / NOT REGISTERED</div>
               <p className="text-xs text-[#737373] max-w-md mx-auto">
-                This wallet is not currently registered as an active infrastructure provider on NodeGuard. Lock collateral in GEN to guarantee services and start generating monthly fee cashflows.
+                This wallet is not currently registered as an active infrastructure provider. Lock collateral in GEN to guarantee services and start generating monthly fee cashflows.
               </p>
               <button
                 onClick={() => onNavigate("register-provider")}
@@ -304,14 +312,12 @@ export default function DashboardPage({
               </button>
             </div>
           ) : (
-            /* Active registered provider state */
             <div className="space-y-10">
-              {/* Provider Quick Stats */}
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="bg-[#0e0e0e] border border-[#06b6d4] p-6 space-y-3">
                   <div className="text-[10px] font-mono text-[#737373] uppercase tracking-wider">TOTAL STAKED COLLATERAL</div>
                   <div className="text-3xl font-mono font-bold text-[#06b6d4]">
-                    {providerProfile.stake.toLocaleString()} GEN
+                    {Number(providerProfile.staked_gen).toLocaleString()} GEN
                   </div>
                   <div className="text-[10px] text-[#3d3d3d] font-mono uppercase">
                     ACTIVE Performance Escrow
@@ -321,18 +327,20 @@ export default function DashboardPage({
                 <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-3">
                   <div className="text-[10px] font-mono text-[#737373] uppercase tracking-wider">REPUTATION SCORE</div>
                   <div className="text-3xl font-mono font-bold text-white">
-                    {providerProfile.reputation}/100
+                    {providerProfile.reputation_score}/100
                   </div>
-                  {/* progress */}
                   <div className="w-full bg-[#131313] h-1 border border-[#1a1a1a]">
-                    <div className="bg-[#06b6d4] h-full" style={{ width: `${providerProfile.reputation}%` }}></div>
+                    <div
+                      className="bg-[#06b6d4] h-full"
+                      style={{ width: `${Math.min(100, Number(providerProfile.reputation_score) || 0)}%` }}
+                    />
                   </div>
                 </div>
 
                 <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-3">
                   <div className="text-[10px] font-mono text-[#737373] uppercase tracking-wider">ACTIVE CONTRACTS</div>
                   <div className="text-3xl font-mono font-bold text-white">
-                    {providerProfile.activeAgreements}
+                    {providerProfile.active_agreements}
                   </div>
                   <div className="text-[10px] text-[#3d3d3d] font-mono uppercase">
                     RECEIVING SUBSCRIPTIONS
@@ -342,11 +350,7 @@ export default function DashboardPage({
                 <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-3">
                   <div className="text-[10px] font-mono text-red-500 uppercase tracking-wider">LIFETIME SLASHED</div>
                   <div className="text-3xl font-mono font-bold text-red-500">
-                    {providerAgreements.reduce((sum, a) => {
-                      const associatedDisputes = providerDisputes.filter(d => d.agreementId === a.id);
-                      const slashed = associatedDisputes.reduce((tot, d) => tot + (d.verdict?.slashExecuted || 0), 0);
-                      return sum + slashed;
-                    }, 0).toLocaleString()} GEN
+                    {Number(providerProfile.total_slashed_gen ?? lifetimeSlashed).toLocaleString()} GEN
                   </div>
                   <div className="text-[10px] text-red-500/50 font-mono uppercase">
                     PENALTY FROM VERDICTS
@@ -354,7 +358,6 @@ export default function DashboardPage({
                 </div>
               </div>
 
-              {/* Action: Add Stake */}
               <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-heading font-bold uppercase text-white">
@@ -378,14 +381,13 @@ export default function DashboardPage({
                   <button
                     type="submit"
                     disabled={isSubmittingStake}
-                    className="bg-[#06b6d4] text-black px-6 py-2 py-2.5 font-heading text-xs font-bold uppercase tracking-wider hover:bg-[#67e8f9] transition-colors cursor-pointer w-full sm:w-auto"
+                    className="bg-[#06b6d4] text-black px-6 py-2.5 font-heading text-xs font-bold uppercase tracking-wider hover:bg-[#67e8f9] transition-colors cursor-pointer w-full sm:w-auto"
                   >
                     {isSubmittingStake ? "STAKING..." : "ADD STAKE"}
                   </button>
                 </form>
               </div>
 
-              {/* Provider Agreements Table */}
               <div className="space-y-4">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-tight text-white">
                   &gt; ACTIVE PROVIDER COMMITMENTS
@@ -409,28 +411,28 @@ export default function DashboardPage({
                       </thead>
                       <tbody>
                         {providerAgreements.map((a) => (
-                          <tr key={a.id} className="border-b border-[#131313] hover:bg-[#131313]/20">
+                          <tr key={a.agreement_id} className="border-b border-[#131313] hover:bg-[#131313]/20">
                             <td className="p-4">
-                              <div className="font-heading text-sm font-bold text-white uppercase">{a.name}</div>
-                              <div className="text-[10px] text-[#737373] mt-0.5">{a.id} • {a.type}</div>
+                              <div className="font-heading text-sm font-bold text-white uppercase">{a.service_name}</div>
+                              <div className="text-[10px] text-[#737373] mt-0.5">
+                                {a.agreement_id} • {a.service_type}
+                              </div>
                             </td>
-                            <td className="p-4 text-[#737373]">
-                              {a.clientWallet.slice(0, 6)}...{a.clientWallet.slice(-4)}
-                            </td>
+                            <td className="p-4 text-[#737373]">{shortAddr(a.client)}</td>
                             <td className="p-4">
-                              Uptime &gt;= {a.requirements.uptimeRequired}% • Latency &lt;= {a.requirements.maxLatency}ms
+                              Uptime &gt;= {a.sla_terms?.uptime_percentage}% • Latency &lt;= {a.sla_terms?.max_latency_ms}ms
                             </td>
                             <td className="p-4 text-[#06b6d4] font-bold">
-                              {a.monthlyFee} GEN
+                              {a.monthly_fee_gen} GEN
                             </td>
                             <td className="p-4">
                               <span className={`inline-block px-2.5 py-0.5 border text-[10px] font-bold uppercase ${getStatusColor(a.status)}`}>
-                                {a.status}
+                                {formatStatus(a.status)}
                               </span>
                             </td>
                             <td className="p-4 text-right">
                               <button
-                                onClick={() => onNavigate("agreement-detail", { id: a.id })}
+                                onClick={() => onNavigate("agreement-detail", { id: a.agreement_id })}
                                 className="border border-[#1a1a1a] hover:border-[#06b6d4] hover:text-[#06b6d4] text-white px-3 py-1.5 uppercase font-bold text-[10px] cursor-pointer"
                               >
                                 MONITOR
@@ -444,7 +446,6 @@ export default function DashboardPage({
                 </div>
               </div>
 
-              {/* Provider Dispute Defense Table */}
               <div className="space-y-4">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-tight text-white">
                   &gt; DISPUTE CLAIMS RESPONDENT RECORD
@@ -462,53 +463,36 @@ export default function DashboardPage({
                           <th className="p-4 uppercase">CLIENT</th>
                           <th className="p-4 uppercase">SLA METRIC FAILURE ALLEGATION</th>
                           <th className="p-4 uppercase">STATUS</th>
-                          <th className="p-4 uppercase">VERDICT / SLASH</th>
+                          <th className="p-4 uppercase">SLASH</th>
                           <th className="p-4 uppercase text-right">DEFEND</th>
                         </tr>
                       </thead>
                       <tbody>
                         {providerDisputes.map((d) => (
-                          <tr key={d.id} className="border-b border-[#131313] hover:bg-[#131313]/20">
-                            <td className="p-4 font-bold text-[#06b6d4]">
-                              #{d.id}
-                            </td>
-                            <td className="p-4 text-[#737373]">
-                              {d.claimantWallet.slice(0, 6)}...{d.claimantWallet.slice(-4)}
-                            </td>
+                          <tr key={d.dispute_id} className="border-b border-[#131313] hover:bg-[#131313]/20">
+                            <td className="p-4 font-bold text-[#06b6d4]">#{d.dispute_id}</td>
+                            <td className="p-4 text-[#737373]">{shortAddr(d.claimant)}</td>
                             <td className="p-4 text-xs">
                               <div className="line-clamp-1">{d.description}</div>
-                              <div className="text-[10px] text-[#737373] mt-0.5">Filed: {new Date(d.createdAt).toLocaleDateString()}</div>
+                              <div className="text-[10px] text-[#737373] mt-0.5">
+                                Filed: {formatDate(d.filed_at)}
+                              </div>
                             </td>
                             <td className="p-4">
-                              <span className={`inline-block px-2 py-0.5 border text-[10px] uppercase font-bold ${
-                                d.status === "Open" ? "text-cyan-400 border-cyan-400/30" :
-                                d.status === "Under Review" ? "text-amber-500 border-amber-500/30" :
-                                d.status === "Appealed" ? "text-purple-400 border-purple-400/30" :
-                                "text-green-500 border-green-500/30"
-                              }`}>
-                                {d.status}
+                              <span className={`inline-block px-2 py-0.5 border text-[10px] uppercase font-bold ${getStatusColor(d.status)}`}>
+                                {formatStatus(d.status)}
                               </span>
                             </td>
                             <td className="p-4">
-                              {d.verdict ? (
-                                <div>
-                                  <span className={`font-bold block ${
-                                    d.verdict.status === "Breach Confirmed" ? "text-red-500" :
-                                    d.verdict.status === "Partial Breach" ? "text-amber-500" : "text-green-500"
-                                  }`}>
-                                    {d.verdict.status.toUpperCase()}
-                                  </span>
-                                  {d.verdict.slashExecuted > 0 && (
-                                    <span className="text-red-500 text-[10px]">-{d.verdict.slashExecuted} GEN</span>
-                                  )}
-                                </div>
+                              {Number(d.slashed_amount) > 0 ? (
+                                <span className="text-red-500 text-[10px] font-bold">-{d.slashed_amount} GEN</span>
                               ) : (
-                                <span className="text-[#3d3d3d] uppercase">PENDING ARBITRATION</span>
+                                <span className="text-[#3d3d3d] uppercase">PENDING</span>
                               )}
                             </td>
                             <td className="p-4 text-right">
                               <button
-                                onClick={() => onNavigate("dispute-detail", { id: d.id })}
+                                onClick={() => onNavigate("dispute-detail", { id: d.dispute_id })}
                                 className="border border-[#1a1a1a] hover:border-[#06b6d4] hover:text-[#06b6d4] text-white px-3 py-1.5 uppercase font-bold text-[10px] cursor-pointer"
                               >
                                 DEFEND

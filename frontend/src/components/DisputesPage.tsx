@@ -5,7 +5,7 @@ import { Dispute, Agreement, ArbitrationVerdict } from "../lib/contract/types";
 interface DisputesPageProps {
   disputes: Dispute[];
   agreements: Agreement[];
-  verdicts?: ArbitrationVerdict[]; // Added to match and render verdict specifics
+  verdicts?: ArbitrationVerdict[];
   onNavigate: (view: string, params?: any) => void;
 }
 

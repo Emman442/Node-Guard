@@ -13,7 +13,7 @@ import {
   Info
 } from "lucide-react";
 
-import { Provider, Agreement, Dispute, TelemetrySource, NetworkStats } from "./types.ts";
+import { Provider, Agreement, Dispute, TelemetrySource, NetworkStats } from "./lib/contract/types";
 
 // Import custom pages
 import LandingPage from "./components/LandingPage.tsx";

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, AlertTriangle, ShieldAlert, Plus, Trash } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Trash } from "lucide-react";
 import { Agreement } from "../lib/contract/types.ts";
 import { useFileDispute } from "../lib/hooks/useNodeGuard.ts";
 
