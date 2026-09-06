@@ -14,8 +14,6 @@ class _Recipient:
         pass
 
 
-# ─── Data Structures ──────────────────────────────────────────
-
 @allow_storage
 @dataclass
 class Provider:
@@ -30,7 +28,7 @@ class Provider:
     total_slashed_gen: i32
     reputation_score: i32
     registered_at: str
-    status: str             # "active" | "suspended" | "exited"
+    status: str      
 
 
 @allow_storage
@@ -159,44 +157,35 @@ class Dispute:
 
 class SLAArbitrator(gl.Contract):
 
-    # Providers
+  
     providers: TreeMap[str, Provider]
     provider_ids: DynArray[str]
 
-    # Clients
     clients: TreeMap[str, Client]
 
-    # Agreements
+
     agreements: TreeMap[str, Agreement]
     agreement_ids: DynArray[str]
     agreement_counter: i32
 
-    # Telemetry sources — registered monitoring endpoints
+    
     telemetry_sources: TreeMap[str, TelemetrySource]
     telemetry_source_ids: DynArray[str]
     telemetry_source_counter: i32
 
-    # Telemetry readings — keyed by reading_id
     telemetry_readings: TreeMap[str, TelemetryReading]
     reading_counter: i32
 
-    # Disputes — keyed by dispute_id
     disputes: TreeMap[str, Dispute]
     dispute_ids: DynArray[str]
     dispute_counter: i32
-
-    # Evidence — keyed by evidence_id
     evidence: TreeMap[str, DisputeEvidence]
     evidence_counter: i32
 
-    # Verdicts — keyed by verdict_id
     verdicts: TreeMap[str, ArbitrationVerdict]
     verdict_counter: i32
-
-    # Admin
     admin: str
 
-    # Minimum stake to become a provider
     min_provider_stake: i32
 
     def __init__(self, admin_address: str, min_stake_gen: i32):
@@ -209,7 +198,6 @@ class SLAArbitrator(gl.Contract):
         self.evidence_counter = i32(0)
         self.verdict_counter = i32(0)
 
-    # ─── Helpers ──────────────────────────────────────────────
 
     def _only_admin(self) -> None:
         assert str(gl.message.sender_address) == self.admin, "Only admin"
@@ -225,7 +213,7 @@ class SLAArbitrator(gl.Contract):
                 registered_at=gl.message_raw["datetime"]
             )
 
-    # ─── Provider Registration & Staking ──────────────────────
+    
 
     @gl.public.write.payable
     def register_provider(
@@ -319,7 +307,6 @@ class SLAArbitrator(gl.Contract):
         self._ensure_client(wallet)
         self.clients[wallet].name = name
 
-    # ─── Telemetry Source Registry (Admin) ────────────────────
 
     @gl.public.write
     def register_telemetry_source(
@@ -357,7 +344,6 @@ class SLAArbitrator(gl.Contract):
         self.telemetry_source_ids.append(source_id)
         return source_id
 
-    # ─── Agreement Creation ───────────────────────────────────
 
     @gl.public.write.payable
     def create_agreement(
@@ -397,11 +383,11 @@ class SLAArbitrator(gl.Contract):
         assert len(plain_english_sla) >= 50, "SLA terms too short — be specific"
         assert len(telemetry_source_ids) >= 1, "At least one telemetry source required"
 
-        # Verify all telemetry sources exist
+        
         for sid in telemetry_source_ids:
             assert sid in self.telemetry_sources, f"Telemetry source {sid} not found"
 
-        # Verify provider has enough stake to cover max penalty
+       
         assert int(p.staked_gen) >= int(max_penalty_per_dispute), \
             "Provider stake insufficient to cover maximum penalty"
 
@@ -455,7 +441,7 @@ class SLAArbitrator(gl.Contract):
         self.providers[provider_wallet].total_agreements += i32(1)
         self.clients[client].total_agreements += i32(1)
 
-        # Pay provider the monthly fee
+       
         _Recipient(Address(provider_wallet)).emit_transfer(
             value=u256(monthly_fee_gen) * u256(10**18)
         )
@@ -474,8 +460,7 @@ class SLAArbitrator(gl.Contract):
         self.agreements[agreement_id].status = "terminated"
         self.providers[a.provider].active_agreements -= i32(1)
 
-    # ─── Record Telemetry Reading ─────────────────────────────
-
+    
     @gl.public.write
     def record_telemetry(
         self,
@@ -666,7 +651,6 @@ Return ONLY valid JSON:
 
         return dispute_id
 
-    # ─── Submit Evidence ──────────────────────────────────────
 
     @gl.public.write
     def submit_evidence(
@@ -707,7 +691,7 @@ Return ONLY valid JSON:
 
         return evidence_id
 
-    # ─── AI Arbitration (Core GenLayer Logic) ─────────────────
+
 
     @gl.public.write
     def render_verdict(self, dispute_id: str) -> None:
@@ -746,7 +730,7 @@ Return ONLY valid JSON:
         max_penalty = int(sla.max_penalty_per_dispute)
 
         def run_arbitration() -> str:
-            # Fetch from all telemetry sources
+           
             telemetry_data = ""
             for sid in source_ids[:4]:
                 src = self.telemetry_sources.get(sid)
@@ -758,7 +742,6 @@ Return ONLY valid JSON:
                     except:
                         telemetry_data += f"\n=== {src.name} ===\nCould not fetch\n"
 
-            # Fetch evidence submitted by both parties
             evidence_content = ""
             for eid in evidence_ids[:6]:
                 ev = self.evidence.get(eid)
@@ -946,13 +929,13 @@ Slash amount must be proportional to breach severity."""
 
             self.clients[claimant_wallet].total_disputes_won += i32(1)
 
-            # Pay slashed amount to claimant
+            
             _Recipient(Address(claimant_wallet)).emit_transfer(
                 value=u256(actual_slash) * u256(10**18)
             )
 
         else:
-            # No breach — restore agreement status
+            
             self.agreements[d.agreement_id].status = "active"
             if int(self.providers[provider_wallet].reputation_score) < 100:
                 self.providers[provider_wallet].reputation_score += i32(2)
@@ -1098,7 +1081,7 @@ Return ONLY valid JSON:
         self.disputes[dispute_id].resolved_at = gl.message_raw["datetime"]
 
         if verdict == "no_breach":
-            # Overturn — refund the slash to provider
+            
             original_slash = int(d.slashed_amount)
             if original_slash > 0:
                 self.providers[d.respondent].staked_gen += i32(original_slash)
@@ -1119,7 +1102,6 @@ Return ONLY valid JSON:
         self._only_admin()
         self.min_provider_stake = new_min
 
-    # ─── Read Methods ─────────────────────────────────────────
 
     @gl.public.view
     def get_provider(self, wallet: str) -> Provider:
