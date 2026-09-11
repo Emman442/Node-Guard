@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Clock, ShieldAlert, CheckCircle2, Copy, Play, AlertCircle, Cpu, RefreshCw, Scale } from "lucide-react";
 import { Dispute, Agreement, DisputeEvidence, ArbitrationVerdict } from "../lib/contract/types";
-import { useAppealVerdict, useRenderVerdict, useSubmitEvidence } from "../lib/hooks/useNodeGuard";
+import { useAppealVerdict, useRenderVerdict, useSubmitEvidence, useFetchVerdict } from "../lib/hooks/useNodeGuard";
+import { EvidenceRow } from "./EvidenceRow";
 
 interface DisputeDetailPageProps {
   dispute: Dispute;
   agreement: Agreement | undefined;
-  evidence: DisputeEvidence[];
-  verdict: ArbitrationVerdict | undefined;
   connectedWallet: string;
   onNavigate: (view: string, params?: any) => void;
   onCopyText: (text: string, label: string) => void;
@@ -17,30 +16,34 @@ interface DisputeDetailPageProps {
 export default function DisputeDetailPage({
   dispute,
   agreement,
-  evidence = [],
-  verdict,
   connectedWallet,
   onNavigate,
   onCopyText,
   triggerToast
 }: DisputeDetailPageProps) {
-  // Terminal simulation state
-  const [isArbitrating, setIsArbitrating] = useState(false);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const [activeLogIndex, setActiveLogIndex] = useState(0);
 
   const [isAddingEvidence, setIsAddingEvidence] = useState(false);
   const [newEvidenceUrl, setNewEvidenceUrl] = useState("");
   const [evidenceTitle, setEvidenceTitle] = useState("");
-  const [evidenceType, setEvidenceType] = useState("log_file");
+  const [evidenceType, setEvidenceType] = useState("log_url");
   const [evidenceDesc, setEvidenceDesc] = useState("");
+  const evidence = dispute?.evidence_ids || [];
+  const { data: verdict, isPending: isLoadingVerdict } = useFetchVerdict(dispute.verdict_id);
 
-  // Appeal input UI state
+  console.log("verdict", verdict);
+
+
+  const canAppeal =
+    !!verdict &&
+    (verdict.verdict === "breach_confirmed" ||
+      verdict.verdict === "partial_breach") &&
+    dispute.status === "verdict_rendered" &&
+    !dispute.appeal_verdict_id;
+
   const [showAppealForm, setShowAppealForm] = useState(false);
   const [appealComments, setAppealComments] = useState("");
   const [appealEvidenceUrl, setAppealEvidenceUrl] = useState("");
 
-  // Hook mutations
   const { isPending: isAppealing, mutate: appealVerdict } = useAppealVerdict();
   const { isPending: isSubmittingEvidence, mutate: submitEvidence } = useSubmitEvidence();
   const { isPending: isRenderingVerdict, mutate: renderVerdict } = useRenderVerdict();
@@ -48,45 +51,15 @@ export default function DisputeDetailPage({
   const isClaimant = connectedWallet.toLowerCase() === dispute.claimant.toLowerCase();
   const isProvider = connectedWallet.toLowerCase() === dispute.respondent.toLowerCase();
 
-  const mockTerminalMessages = [
-    "> CONNECTING TO GENLAYER VALIDATOR PROTOCOL...",
-    "> RESOLVING TELEMETRY CHANNELS FOR AGREEMENT ENDPOINT...",
-    "> PINNING PRIMARY OUT-OF-BAND TELEMETRY PROBES...",
-    "> ARCHIVE RETRIEVAL REQUEST: LOADING LOGS BETWEEN " + new Date(dispute.incident_start).toLocaleDateString() + " AND " + new Date(dispute.incident_end).toLocaleDateString(),
-    "> EXTRACTING SLA RULES: " + (agreement?.sla_terms?.plain_english_sla ? agreement.sla_terms.plain_english_sla.slice(0, 45) + "..." : "CUSTOM UPTIME GUIDELINES"),
-    "> RUNNING CONSENSUS VALIDATION AMONG 15 INDEPENDENT AI COGNITIVE AGENTS...",
-    "> VERDICT DETERMINED. DRAFTING BINDING STATEMENT...",
-    "> EXECUTING CONTRACT ACTION: TRANSACTING ON-CHAIN REIMBURSEMENTS..."
-  ];
-
-  // Run terminal sequence
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isArbitrating && activeLogIndex < mockTerminalMessages.length) {
-      timer = setTimeout(() => {
-        setTerminalLogs((prev) => [...prev, mockTerminalMessages[activeLogIndex]]);
-        setActiveLogIndex((prev) => prev + 1);
-      }, 900);
-    } else if (isArbitrating && activeLogIndex === mockTerminalMessages.length) {
-      // Once logs complete, execute transaction call
-      renderVerdict(dispute.dispute_id, {
-        onSuccess: () => {
-          triggerToast("Success", "Consensus query resolved and verdict recorded.", "success");
-          setIsArbitrating(false);
-        },
-        onError: (err: any) => {
-          triggerToast("Error", err.message || "Arbitration execution failed.", "error");
-          setIsArbitrating(false);
-        }
-      });
-    }
-    return () => clearTimeout(timer);
-  }, [isArbitrating, activeLogIndex]);
-
   const handleRunArbitration = () => {
-    setIsArbitrating(true);
-    setTerminalLogs([]);
-    setActiveLogIndex(0);
+    renderVerdict(dispute.dispute_id, {
+      onSuccess: () => {
+        triggerToast("Success", "Consensus query resolved and verdict recorded.", "success");
+      },
+      onError: (err: any) => {
+        triggerToast("Error", err.message || "Arbitration execution failed.", "error");
+      }
+    });
   };
 
   const handleSubmitEvidence = (e: React.FormEvent) => {
@@ -265,10 +238,11 @@ export default function DisputeDetailPage({
                       onChange={(e) => setEvidenceType(e.target.value)}
                       className="bg-black text-white border border-[#1a1a1a] px-3 py-2 text-xs focus:outline-none focus:border-[#06b6d4] w-full"
                     >
-                      <option value="log_file">Log File</option>
-                      <option value="screenshot">Screenshot</option>
-                      <option value="network_capture">Network Capture</option>
-                      <option value="other">Other Docs</option>
+                      <option value="log_url">Log File</option>
+                      <option value="screenshot_url">Screenshot</option>
+                      <option value="monitoring_dashboard">Monitoring Dashboard</option>
+                      <option value="telemetry_url">Telemetry URL</option>
+                      <option value="transaction_proof">Transaction Proof</option>
                     </select>
                   </div>
                 </div>
@@ -320,17 +294,7 @@ export default function DisputeDetailPage({
                 <div className="text-xs text-[#737373] font-mono">NO SUBMITTED EVIDENCE RECORDS LOGGED.</div>
               ) : (
                 evidence.map((ev) => (
-                  <div key={ev.evidence_id} className="bg-[#090909] border border-[#1a1a1a] p-3 font-mono text-xs flex justify-between items-center">
-                    <span className="text-[#737373] truncate max-w-sm lg:max-w-md">{ev.url}</span>
-                    <a
-                      href={ev.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[#06b6d4] hover:underline text-[10px] font-bold"
-                    >
-                      OPEN LINK &gt;
-                    </a>
-                  </div>
+                  <EvidenceRow key={ev} evidenceId={ev} />
                 ))
               )}
             </div>
@@ -369,7 +333,7 @@ export default function DisputeDetailPage({
           )}
 
           {/* PROVIDER INITIATE APPEAL SEED */}
-          {isProvider && dispute.status === "verdict_rendered" && !verdict?.is_appeal && (
+          {isProvider && dispute.status === "verdict_rendered" && canAppeal && (
             <div className="bg-[#0e0e0e] border border-[#1a1a1a] p-6 space-y-4 font-mono text-xs">
               <h2 className="text-sm font-heading font-bold text-[#06b6d4] uppercase tracking-wider border-b border-[#131313] pb-2">
                 INITIATE ESCALATION
@@ -504,7 +468,7 @@ export default function DisputeDetailPage({
 
               {/* Rationale text block */}
               <div className="space-y-1.5 border-t border-[#131313] pt-4 font-mono text-[10px]">
-                <span className="text-[#737373] uppercase block">AI REASONING TRANSCRIPT:</span>
+                <span className="text-[#737373] uppercase block">AI REASONING:</span>
                 <p className="text-[#737373] bg-[#090909] p-3 border border-[#1a1a1a] font-sans text-xs leading-relaxed max-h-48 overflow-y-auto">
                   {verdict.reasoning}
                 </p>
@@ -525,31 +489,18 @@ export default function DisputeDetailPage({
                 This dispute remains unresolved. Any connected network participant can initiate the GenLayer consensus query to resolve actual telemetry and trigger automatically binding slashes.
               </p>
 
-              {/* Active terminal logging */}
-              {isArbitrating && (
-                <div className="bg-black border border-[#1a1a1a] p-4 h-48 overflow-y-auto font-mono text-[10px] space-y-1.5 text-[#06b6d4]">
-                  {terminalLogs.map((log, idx) => (
-                    <div key={idx} className="leading-relaxed">{log}</div>
-                  ))}
-                  {activeLogIndex < mockTerminalMessages.length && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-3 bg-[#06b6d4] inline-block animate-[pulse_0.75s_infinite]"></span>
-                      <span className="text-[#737373] italic">computing consensus...</span>
-                    </div>
-                  )}
-                </div>
-              )}
+
 
               {/* Interactive trigger button */}
               <button
                 onClick={handleRunArbitration}
-                disabled={isArbitrating || isRenderingVerdict}
-                className={`w-full py-3 font-heading font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer border-none ${isArbitrating || isRenderingVerdict
+                disabled={isRenderingVerdict}
+                className={`w-full py-3 font-heading font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer border-none ${isRenderingVerdict
                   ? "bg-[#131313] text-[#3d3d3d] cursor-not-allowed border border-[#1a1a1a]"
                   : "bg-[#06b6d4] text-black hover:bg-[#67e8f9] transition-all"
                   }`}
               >
-                {isArbitrating || isRenderingVerdict ? (
+                {isRenderingVerdict ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" /> RESOLVING CASE...
                   </>

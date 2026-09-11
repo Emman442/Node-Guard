@@ -319,6 +319,23 @@ class NodeGuard {
         }
     }
 
+
+    async getEvidence(evidenceId: string): Promise<DisputeEvidence> {
+        try {
+            const evidence = await this.client.readContract({
+                address: this.contractAddress,
+                functionName: "get_evidence_item",
+                args: [evidenceId],
+            });
+            return evidence as DisputeEvidence;
+        } catch (error) {
+            console.error("Error fetching evidence:", error);
+            throw new Error("Failed to fetch evidence");
+        }
+    }
+
+          
+
     // ─── Telemetry & Readings ───────────────────────────────────────────────
 
     async registerTelemetrySource(

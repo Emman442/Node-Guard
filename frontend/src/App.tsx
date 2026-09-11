@@ -27,7 +27,7 @@ import FileDisputePage from "./components/FileDisputePage.tsx";
 import DisputeDetailPage from "./components/DisputeDetailPage.tsx";
 import ProviderProfilePage from "./components/ProviderProfilePage.tsx";
 import { useWallet } from "./lib/genlayer/wallet";
-import { useFetchAllAgreements, useFetchAllDisputes, useFetchAllProviders } from "./lib/hooks/useNodeGuard.ts";
+import { useFetchAllAgreements, useFetchAllDisputes, useFetchAllProviders, useFetchAllTelemetrySources } from "./lib/hooks/useNodeGuard.ts";
 
 // Create central query client for the applet
 const queryClient = new QueryClient({
@@ -61,9 +61,7 @@ function NodeGuardAppContent() {
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Local state for missing components parameters 
-  // (Adjust or populate these based on your contract schema or design)
-  const [telemetrySources] = useState<TelemetrySource[]>([]);
+  const { data: telemetrySources = [] } = useFetchAllTelemetrySources();
   const [stats] = useState<NetworkStats>({
     activeAgreements: agreements.length,
     registeredProviders: providers.length,
@@ -97,18 +95,6 @@ function NodeGuardAppContent() {
 
 
 
-
-  const handleSubmitTelemetry = async (agreementId: string, reading: any) => {
-    try {
-      triggerToast("Submitting", "Uploading telemetry to smart contract...", "info");
-      // Call contract mutation here
-      queryClientInstance.invalidateQueries({ queryKey: ["agreements"] });
-      triggerToast("Success", "Telemetry logged successfully.", "success");
-    } catch (e: any) {
-      triggerToast("Error", e.message || "Failed to submit telemetry", "error");
-    }
-  };
-
   const handleManualRefetch = () => {
     triggerToast("Syncing", "Manually pulling current contract state...", "info");
     queryClientInstance.invalidateQueries();
@@ -123,10 +109,10 @@ function NodeGuardAppContent() {
   );
 
   const clientDisputes = disputes.filter(
-    (d) => d.submitted_by.toLowerCase() === connectedWallet?.toLowerCase()
+    (d) => d.claimant.toLowerCase() === connectedWallet?.toLowerCase()
   );
   const providerDisputes = disputes.filter(
-    (d) => d.submitted_by.toLowerCase() === connectedWallet?.toLowerCase()
+    (d) => d.claimant.toLowerCase() === connectedWallet?.toLowerCase()
   );
 
   const connectedProviderProfile = providers.find(
@@ -137,7 +123,7 @@ function NodeGuardAppContent() {
   const activeAgreementDetail = agreements.find((a) => a.agreement_id === viewParams.id);
   const activeDisputeDetail = disputes.find((d) => d.dispute_id === viewParams.id);
   const activeDisputeAgreement = activeDisputeDetail 
-    ? agreements.find((a) => a.agreement_id === activeDisputeDetail.agreementId)
+    ? agreements.find((a) => a.agreement_id === activeDisputeDetail.agreement_id)
     : undefined;
 
   return (
@@ -223,6 +209,7 @@ function NodeGuardAppContent() {
             providers={providers}
             onNavigate={navigateTo}
             onCopyText={handleCopyText}
+            // triggerToast={triggerToast}
           />
         )}
 
@@ -246,6 +233,7 @@ function NodeGuardAppContent() {
             clientDisputes={clientDisputes}
             providerDisputes={providerDisputes}
             onNavigate={navigateTo}
+            triggerToast={triggerToast}
           />
         )}
 
@@ -254,6 +242,7 @@ function NodeGuardAppContent() {
             disputes={disputes}
             agreements={agreements}
             onNavigate={navigateTo}
+         
           />
         )}
 
@@ -272,7 +261,6 @@ function NodeGuardAppContent() {
             telemetrySources={telemetrySources}
             preselectedProviderWallet={viewParams.providerWallet}
             onNavigate={navigateTo}
-            onCreateSuccess={handleAgreementSuccess}
             triggerToast={triggerToast}
           />
         )}
@@ -287,7 +275,7 @@ function NodeGuardAppContent() {
             connectedWallet={connectedWallet || ""}
             onNavigate={navigateTo}
             onCopyText={handleCopyText}
-            onSubmitTelemetry={(reading) => handleSubmitTelemetry(viewParams.id, reading)}
+           
             triggerToast={triggerToast}
           />
         )}
@@ -297,7 +285,6 @@ function NodeGuardAppContent() {
             connectedWallet={connectedWallet || ""}
             agreement={agreements.find((a) => a.agreement_id === viewParams.agreementId)!}
             onNavigate={navigateTo}
-            onDisputeSuccess={handleDisputeSuccess}
             triggerToast={triggerToast}
           />
         )}

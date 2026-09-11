@@ -162,9 +162,9 @@ export interface FullDispute {
   evidence: DisputeEvidence[];
 
   verdict?: ArbitrationVerdict;
-  appealVerdict?: ArbitrationVerdict;
+  appeal_verdict?: ArbitrationVerdict;
 
-  telemetryReadings: TelemetryReading[];
+  telemetry_readings: TelemetryReading[];
 }
 
 

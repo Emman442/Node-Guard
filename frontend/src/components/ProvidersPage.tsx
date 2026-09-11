@@ -8,6 +8,7 @@ interface ProvidersPageProps {
   disputes?: Dispute[];
   onNavigate: (view: string, params?: any) => void;
   onCopyText: (text: string, label: string) => void;
+  // triggerToast: (title: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
 }
 
 export default function ProvidersPage({
@@ -15,7 +16,8 @@ export default function ProvidersPage({
   agreements = [],
   disputes = [],
   onNavigate,
-  onCopyText
+  onCopyText,
+  // triggerToast
 }: ProvidersPageProps) {
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("HIGHEST STAKE");
@@ -60,6 +62,8 @@ export default function ProvidersPage({
     }
     return 0;
   });
+
+
 
   return (
     <div className="space-y-8 pb-16">

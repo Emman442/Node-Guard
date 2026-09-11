@@ -10,9 +10,12 @@ import json
 class _Recipient:
     class View:
         pass
+
     class Write:
         pass
 
+
+# ─── Data Structures ──────────────────────────────────────────
 
 @allow_storage
 @dataclass
@@ -28,7 +31,7 @@ class Provider:
     total_slashed_gen: i32
     reputation_score: i32
     registered_at: str
-    status: str      
+    status: str  # "active" | "suspended" | "exited"
 
 
 @allow_storage
@@ -45,13 +48,13 @@ class Client:
 @allow_storage
 @dataclass
 class SLATerms:
-    uptime_percentage: str      # e.g. "99.9"
-    max_latency_ms: str         # e.g. "200"
-    max_error_rate: str         # e.g. "0.1" (percentage)
+    uptime_percentage: str  # e.g. "99.9"
+    max_latency_ms: str  # e.g. "200"
+    max_error_rate: str  # e.g. "0.1" (percentage)
     data_freshness_blocks: str  # max blocks behind latest acceptable
-    measurement_region: str     # e.g. "global" | "us-east" | "eu-west"
-    plain_english_sla: str      # full human-readable SLA terms
-    penalty_per_incident: i32   # GEN to slash per confirmed violation
+    measurement_region: str  # e.g. "global" | "us-east" | "eu-west"
+    plain_english_sla: str  # full human-readable SLA terms
+    penalty_per_incident: i32  # GEN to slash per confirmed violation
     max_penalty_per_dispute: i32
 
 
@@ -60,9 +63,9 @@ class SLATerms:
 class TelemetrySource:
     source_id: str
     name: str
-    url: str                    # monitoring endpoint URL
-    auth_header: str            # optional auth header key (value stored off-chain)
-    source_type: str            # "uptime_api" | "latency_api" | "rpc_health" | "public_dashboard"
+    url: str  # monitoring endpoint URL
+    auth_header: str  # optional auth header key (value stored off-chain)
+    source_type: str  # "uptime_api" | "latency_api" | "rpc_health" | "public_dashboard"
     description: str
 
 
@@ -73,15 +76,15 @@ class Agreement:
     provider: str
     client: str
     service_name: str
-    service_type: str           # "rpc_node" | "gpu_cluster" | "indexer" | "api" | "other"
-    service_endpoint: str       # the actual RPC/API endpoint
+    service_type: str  # "rpc_node" | "gpu_cluster" | "indexer" | "api" | "other"
+    service_endpoint: str  # the actual RPC/API endpoint
     sla_terms: SLATerms
     telemetry_source_ids: DynArray[str]
     stake_locked: i32
     monthly_fee_gen: i32
     start_date: str
     end_date: str
-    status: str                 # "active" | "disputed" | "terminated" | "expired"
+    status: str  # "active" | "disputed" | "terminated" | "expired"
     dispute_ids: DynArray[str]
     created_at: str
 
@@ -98,7 +101,7 @@ class TelemetryReading:
     max_latency_ms: str
     error_rate: str
     blocks_behind: str
-    raw_data_url: str           # URL where full telemetry JSON is accessible
+    raw_data_url: str  # URL where full telemetry JSON is accessible
     recorded_at: str
     recorded_by: str
 
@@ -109,7 +112,7 @@ class DisputeEvidence:
     evidence_id: str
     dispute_id: str
     submitted_by: str
-    evidence_type: str          # "telemetry_url" | "transaction_proof" | "log_url" | "screenshot_url"
+    evidence_type: str  # "telemetry_url" | "transaction_proof" | "log_url" | "screenshot_url"
     url: str
     description: str
     submitted_at: str
@@ -120,15 +123,15 @@ class DisputeEvidence:
 class ArbitrationVerdict:
     verdict_id: str
     dispute_id: str
-    verdict: str                # "breach_confirmed" | "no_breach" | "partial_breach" | "inconclusive"
-    breach_type: str            # "uptime" | "latency" | "data_freshness" | "error_rate" | "multiple" | ""
-    sla_term_violated: str      # which specific SLA term was breached
-    measured_uptime: str        # what the telemetry showed
+    verdict: str  # "breach_confirmed" | "no_breach" | "partial_breach" | "inconclusive"
+    breach_type: str  # "uptime" | "latency" | "data_freshness" | "error_rate" | "multiple" | ""
+    sla_term_violated: str  # which specific SLA term was breached
+    measured_uptime: str  # what the telemetry showed
     measured_latency: str
     measured_error_rate: str
     reasoning: str
-    confidence: str             # "high" | "medium" | "low"
-    slash_amount: i32           # GEN to slash from provider stake
+    confidence: str  # "high" | "medium" | "low"
+    slash_amount: i32  # GEN to slash from provider stake
     is_appeal: bool
     rendered_at: str
     rendered_by: str
@@ -139,13 +142,13 @@ class ArbitrationVerdict:
 class Dispute:
     dispute_id: str
     agreement_id: str
-    claimant: str               # client filing the dispute
-    respondent: str             # provider being disputed
-    incident_start: str         # when the incident allegedly started
-    incident_end: str           # when it ended
+    claimant: str  # client filing the dispute
+    respondent: str  # provider being disputed
+    incident_start: str  # when the incident allegedly started
+    incident_end: str  # when it ended
     description: str
-    impact_description: str     # what impact did the breach have
-    status: str                 # "open" | "under_review" | "verdict_rendered" | "appealed" | "resolved"
+    impact_description: str  # what impact did the breach have
+    status: str  # "open" | "under_review" | "verdict_rendered" | "appealed" | "resolved"
     verdict_id: str
     appeal_verdict_id: str
     slash_executed: bool
@@ -157,35 +160,44 @@ class Dispute:
 
 class SLAArbitrator(gl.Contract):
 
-  
+    # Providers
     providers: TreeMap[str, Provider]
     provider_ids: DynArray[str]
 
+    # Clients
     clients: TreeMap[str, Client]
 
-
+    # Agreements
     agreements: TreeMap[str, Agreement]
     agreement_ids: DynArray[str]
     agreement_counter: i32
 
-    
+    # Telemetry sources — registered monitoring endpoints
     telemetry_sources: TreeMap[str, TelemetrySource]
     telemetry_source_ids: DynArray[str]
     telemetry_source_counter: i32
 
+    # Telemetry readings — keyed by reading_id
     telemetry_readings: TreeMap[str, TelemetryReading]
     reading_counter: i32
 
+    # Disputes — keyed by dispute_id
     disputes: TreeMap[str, Dispute]
     dispute_ids: DynArray[str]
     dispute_counter: i32
+
+    # Evidence — keyed by evidence_id
     evidence: TreeMap[str, DisputeEvidence]
     evidence_counter: i32
 
+    # Verdicts — keyed by verdict_id
     verdicts: TreeMap[str, ArbitrationVerdict]
     verdict_counter: i32
+
+    # Admin
     admin: str
 
+    # Minimum stake to become a provider
     min_provider_stake: i32
 
     def __init__(self, admin_address: str, min_stake_gen: i32):
@@ -198,6 +210,7 @@ class SLAArbitrator(gl.Contract):
         self.evidence_counter = i32(0)
         self.verdict_counter = i32(0)
 
+    # ─── Helpers ──────────────────────────────────────────────
 
     def _only_admin(self) -> None:
         assert str(gl.message.sender_address) == self.admin, "Only admin"
@@ -213,7 +226,7 @@ class SLAArbitrator(gl.Contract):
                 registered_at=gl.message_raw["datetime"]
             )
 
-    
+    # ─── Provider Registration & Staking ──────────────────────
 
     @gl.public.write.payable
     def register_provider(
@@ -307,6 +320,7 @@ class SLAArbitrator(gl.Contract):
         self._ensure_client(wallet)
         self.clients[wallet].name = name
 
+    # ─── Telemetry Source Registry (Admin) ────────────────────
 
     @gl.public.write
     def register_telemetry_source(
@@ -344,6 +358,7 @@ class SLAArbitrator(gl.Contract):
         self.telemetry_source_ids.append(source_id)
         return source_id
 
+    # ─── Agreement Creation ───────────────────────────────────
 
     @gl.public.write.payable
     def create_agreement(
@@ -383,11 +398,9 @@ class SLAArbitrator(gl.Contract):
         assert len(plain_english_sla) >= 50, "SLA terms too short — be specific"
         assert len(telemetry_source_ids) >= 1, "At least one telemetry source required"
 
-        
         for sid in telemetry_source_ids:
             assert sid in self.telemetry_sources, f"Telemetry source {sid} not found"
 
-       
         assert int(p.staked_gen) >= int(max_penalty_per_dispute), \
             "Provider stake insufficient to cover maximum penalty"
 
@@ -441,7 +454,6 @@ class SLAArbitrator(gl.Contract):
         self.providers[provider_wallet].total_agreements += i32(1)
         self.clients[client].total_agreements += i32(1)
 
-       
         _Recipient(Address(provider_wallet)).emit_transfer(
             value=u256(monthly_fee_gen) * u256(10**18)
         )
@@ -460,7 +472,8 @@ class SLAArbitrator(gl.Contract):
         self.agreements[agreement_id].status = "terminated"
         self.providers[a.provider].active_agreements -= i32(1)
 
-    
+    # ─── Record Telemetry Reading ─────────────────────────────
+
     @gl.public.write
     def record_telemetry(
         self,
@@ -469,45 +482,43 @@ class SLAArbitrator(gl.Contract):
         timeframe_end: str,
         raw_data_url: str
     ) -> str:
-        """
-        Anyone can submit a telemetry reading for an active agreement.
-        The contract fetches the raw_data_url and parses the performance metrics.
-        This builds an on-chain performance history for the provider.
-        """
         recorder = str(gl.message.sender_address)
         assert agreement_id in self.agreements, "Agreement not found"
         a = self.agreements[agreement_id]
         assert a.status == "active", "Agreement not active"
         assert raw_data_url.startswith("http"), "Valid telemetry URL required"
 
-        agreement_id_val = agreement_id
-        sla = a.sla_terms
         endpoint = a.service_endpoint
-        source_ids = list(a.telemetry_source_ids)
-        uptime_threshold = sla.uptime_percentage
-        latency_threshold = sla.max_latency_ms
-        error_threshold = sla.max_error_rate
+        uptime_threshold = a.sla_terms.uptime_percentage
+        latency_threshold = a.sla_terms.max_latency_ms
+        error_threshold = a.sla_terms.max_error_rate
+
+        source_urls_list = []
+        for sid in a.telemetry_source_ids:
+            try:
+                src = self.telemetry_sources[sid]
+                source_urls_list.append((src.name, src.source_type, src.url))
+            except:
+                pass
+
+        raw_url = raw_data_url
 
         def fetch_telemetry() -> str:
-            # Fetch the raw telemetry data URL
             raw_content = ""
             try:
-                resp = gl.nondet.web.get(raw_data_url)
+                resp = gl.nondet.web.get(raw_url)
                 raw_content = resp.body.decode("utf-8")[:5000]
             except:
                 raw_content = "Could not fetch telemetry data"
 
-            # Also fetch from registered monitoring sources
             source_readings = ""
-            for sid in source_ids[:3]:
-                src = self.telemetry_sources.get(sid)
-                if src:
-                    try:
-                        src_resp = gl.nondet.web.get(src.url)
-                        src_data = src_resp.body.decode("utf-8")[:2000]
-                        source_readings += f"\n{src.name} ({src.source_type}):\n{src_data}\n"
-                    except:
-                        source_readings += f"\n{src.name}: Could not fetch\n"
+            for name, src_type, url in source_urls_list[:3]:
+                try:
+                    src_resp = gl.nondet.web.get(url)
+                    src_data = src_resp.body.decode("utf-8")[:2000]
+                    source_readings += f"\n{name} ({src_type}):\n{src_data}\n"
+                except:
+                    source_readings += f"\n{name}: Could not fetch\n"
 
             prompt = f"""You are parsing infrastructure performance telemetry data.
 
@@ -520,19 +531,19 @@ Raw Telemetry Data:
 Additional Monitor Sources:
 {source_readings if source_readings else "None available"}
 
-SLA Thresholds for reference:
+SLA Thresholds:
 - Required uptime: {uptime_threshold}%
 - Max latency: {latency_threshold}ms
 - Max error rate: {error_threshold}%
 
-Extract the following metrics from the telemetry data:
-1. uptime_percentage: actual uptime observed (as a string like "99.2")
-2. avg_latency_ms: average response latency (as a string like "145")
-3. max_latency_ms: peak latency observed (as a string like "2400")
-4. error_rate: error rate percentage (as a string like "0.3")
-5. blocks_behind: how many blocks behind latest (as a string, "0" if not applicable)
+Extract these metrics from the telemetry data:
+1. uptime_percentage: actual uptime observed
+2. avg_latency_ms: average response latency
+3. max_latency_ms: peak latency observed
+4. error_rate: error rate percentage
+5. blocks_behind: how many blocks behind latest
 
-If a metric cannot be determined from the data, use "unknown".
+If a metric cannot be determined use "unknown".
 
 Return ONLY valid JSON:
 {{"uptime_percentage":"<str>","avg_latency_ms":"<str>","max_latency_ms":"<str>","error_rate":"<str>","blocks_behind":"<str>"}}
@@ -546,7 +557,7 @@ Return ONLY valid JSON:
                     "avg_latency_ms": str(parsed.get("avg_latency_ms", "unknown")),
                     "max_latency_ms": str(parsed.get("max_latency_ms", "unknown")),
                     "error_rate": str(parsed.get("error_rate", "unknown")),
-                    "blocks_behind": str(parsed.get("blocks_behind", "0"))
+                    "blocks_behind": str(parsed.get("blocks_behind", "unknown"))
                 }, sort_keys=True, separators=(',', ':'))
             except:
                 return json.dumps({
@@ -554,13 +565,13 @@ Return ONLY valid JSON:
                     "avg_latency_ms": "unknown",
                     "max_latency_ms": "unknown",
                     "error_rate": "unknown",
-                    "blocks_behind": "0"
+                    "blocks_behind": "unknown"
                 }, sort_keys=True, separators=(',', ':'))
 
         raw = gl.eq_principle.prompt_non_comparative(
             fetch_telemetry,
             task="Parse infrastructure telemetry data and extract performance metrics",
-            criteria="Extract numeric metrics accurately from the telemetry data. Use unknown if a metric cannot be determined."
+            criteria="Extract numeric metrics accurately. Use unknown only if a metric truly cannot be determined."
         )
 
         try:
@@ -569,13 +580,9 @@ Return ONLY valid JSON:
             avg_lat = data.get("avg_latency_ms", "unknown")
             max_lat = data.get("max_latency_ms", "unknown")
             err_rate = data.get("error_rate", "unknown")
-            blocks = data.get("blocks_behind", "0")
+            blocks = data.get("blocks_behind", "unknown")
         except:
-            uptime = "unknown"
-            avg_lat = "unknown"
-            max_lat = "unknown"
-            err_rate = "unknown"
-            blocks = "0"
+            uptime = avg_lat = max_lat = err_rate = blocks = "unknown"
 
         self.reading_counter += i32(1)
         reading_id = f"reading_{self.reading_counter}"
@@ -651,6 +658,7 @@ Return ONLY valid JSON:
 
         return dispute_id
 
+    # ─── Submit Evidence ──────────────────────────────────────
 
     @gl.public.write
     def submit_evidence(
@@ -691,19 +699,10 @@ Return ONLY valid JSON:
 
         return evidence_id
 
-
+    # ─── AI Arbitration (Core GenLayer Logic) ─────────────────
 
     @gl.public.write
     def render_verdict(self, dispute_id: str) -> None:
-        """
-        Triggers AI arbitration. GenLayer validators:
-        1. Fetch telemetry from all registered monitoring sources
-        2. Parse performance metrics for the incident timeframe
-        3. Compare against the plain English SLA terms
-        4. Evaluate submitted evidence from both parties
-        5. Reach consensus on breach determination
-        6. If breach confirmed, calculate and execute stake slash
-        """
         triggered_by = str(gl.message.sender_address)
         assert dispute_id in self.disputes, "Dispute not found"
         d = self.disputes[dispute_id]
@@ -711,6 +710,7 @@ Return ONLY valid JSON:
 
         a = self.agreements[d.agreement_id]
         sla = a.sla_terms
+
         evidence_ids = list(d.evidence_ids)
         source_ids = list(a.telemetry_source_ids)
 
@@ -728,114 +728,124 @@ Return ONLY valid JSON:
         freshness_req = sla.data_freshness_blocks
         penalty = int(sla.penalty_per_incident)
         max_penalty = int(sla.max_penalty_per_dispute)
+        claimant = d.claimant
+        respondent = d.respondent
+
+        source_data_list = []
+        for sid in source_ids[:4]:
+            try:
+                src = self.telemetry_sources[sid]
+                source_data_list.append((src.name, src.source_type, src.url))
+            except:
+                pass
+
+        evidence_data_list = []
+        for eid in evidence_ids[:6]:
+            try:
+                ev = self.evidence[eid]
+                role = "CLAIMANT" if ev.submitted_by == claimant else "PROVIDER"
+                evidence_data_list.append((
+                    role,
+                    ev.description,
+                    ev.evidence_type,
+                    ev.url
+                ))
+            except:
+                pass
 
         def run_arbitration() -> str:
-           
             telemetry_data = ""
-            for sid in source_ids[:4]:
-                src = self.telemetry_sources.get(sid)
-                if src:
-                    try:
-                        resp = gl.nondet.web.get(src.url)
-                        content = resp.body.decode("utf-8")[:2000]
-                        telemetry_data += f"\n=== {src.name} ({src.source_type}) ===\n{content}\n"
-                    except:
-                        telemetry_data += f"\n=== {src.name} ===\nCould not fetch\n"
+            for name, src_type, url in source_data_list:
+                try:
+                    resp = gl.nondet.web.get(url)
+                    content = resp.body.decode("utf-8")[:2000]
+                    telemetry_data += f"\n=== {name} ({src_type}) ===\n{content}\n"
+                except:
+                    telemetry_data += f"\n=== {name} ===\nCould not fetch\n"
 
             evidence_content = ""
-            for eid in evidence_ids[:6]:
-                ev = self.evidence.get(eid)
-                if ev:
-                    role = "CLAIMANT" if ev.submitted_by == d.claimant else "PROVIDER"
-                    try:
-                        ev_resp = gl.nondet.web.get(ev.url)
-                        ev_data = ev_resp.body.decode("utf-8")[:1500]
-                        evidence_content += f"\n[{role}] {ev.title} ({ev.evidence_type}):\n"
-                        evidence_content += f"Description: {ev.description}\n"
-                        evidence_content += f"Data: {ev_data}\n---\n"
-                    except:
-                        evidence_content += f"\n[{role}] {ev.title}: Could not fetch\n---\n"
+            for role, description, ev_type, url in evidence_data_list:
+                try:
+                    ev_resp = gl.nondet.web.get(url)
+                    ev_data = ev_resp.body.decode("utf-8")[:1500]
+                    evidence_content += f"\n[{role}] {description} ({ev_type}):\n{ev_data}\n---\n"
+                except:
+                    evidence_content += f"\n[{role}] {description}: Could not fetch\n---\n"
 
-            prompt = f"""You are an impartial AI arbitrator evaluating a Service Level Agreement breach dispute
-for decentralized infrastructure services.
+            prompt = f"""You are an impartial AI arbitrator evaluating an SLA breach dispute.
 
-SERVICE DETAILS:
-Service Name: {service_name}
-Service Type: {service_type}
-Endpoint: {endpoint}
+        SERVICE: {service_name} ({service_type})
+        ENDPOINT: {endpoint}
+        INCIDENT: {incident_start} to {incident_end}
 
-INCIDENT TIMEFRAME:
-Start: {incident_start}
-End: {incident_end}
+        SLA: {plain_sla}
 
-SLA REQUIREMENTS (plain English):
-{plain_sla}
+        THRESHOLDS:
+        - Required uptime: {uptime_req}%
+        - Max latency: {latency_req}ms
+        - Max error rate: {error_req}%
+        - Max blocks behind: {freshness_req}
 
-SPECIFIC SLA THRESHOLDS:
-- Required uptime: {uptime_req}%
-- Maximum latency: {latency_req}ms
-- Maximum error rate: {error_req}%
-- Maximum blocks behind: {freshness_req}
+        COMPLAINT: {complaint}
+        IMPACT: {impact}
 
-CLAIMANT'S DESCRIPTION OF INCIDENT:
-{complaint}
+        TELEMETRY:
+        {telemetry_data if telemetry_data else "No telemetry available"}
 
-BUSINESS IMPACT CLAIMED:
-{impact}
+        EVIDENCE:
+        {evidence_content if evidence_content else "No evidence submitted"}
 
-TELEMETRY DATA FROM MONITORING SOURCES:
-{telemetry_data if telemetry_data else "No telemetry data could be fetched"}
+        RULES:
+        - Only confirm breach if telemetry clearly shows thresholds exceeded
+        - If verdict is no_breach then breach_type must be empty string
+        - If verdict is breach_confirmed or partial_breach then breach_type must be one of: uptime, latency, data_freshness, error_rate, multiple
+        - slash_amount must be 0 for no_breach and inconclusive
+        - slash_amount must be between {penalty} and {max_penalty} for breach_confirmed
+        - slash_amount must be between 0 and {penalty} for partial_breach
 
-EVIDENCE SUBMITTED BY PARTIES:
-{evidence_content if evidence_content else "No evidence submitted"}
-
-YOUR TASK:
-Analyze the telemetry data and evidence to determine whether the provider
-breached the SLA during the stated incident timeframe.
-
-Be precise and data-driven. Extract specific metrics from the telemetry.
-If the data clearly shows a breach, confirm it. If the data shows normal
-operation, dismiss the claim. If data is insufficient, mark inconclusive.
-
-Penalty scale (up to {max_penalty} GEN maximum):
-- Minor breach (uptime 99.0-99.9%): {penalty} GEN
-- Moderate breach (uptime 95-99%): {penalty * 2} GEN
-- Severe breach (uptime below 95% or total outage): {max_penalty} GEN
-- Latency breach only: {penalty // 2} GEN
-- Data freshness breach: {penalty} GEN
-
-Return ONLY valid JSON:
-{{
-  "verdict": "breach_confirmed" | "no_breach" | "partial_breach" | "inconclusive",
-  "breach_type": "uptime" | "latency" | "data_freshness" | "error_rate" | "multiple" | "",
-  "sla_term_violated": "which specific term from the SLA was violated or empty",
-  "measured_uptime": "actual uptime observed as string or unknown",
-  "measured_latency": "actual avg latency observed as string or unknown",
-  "measured_error_rate": "actual error rate as string or unknown",
-  "reasoning": "4-6 sentences with specific data points from telemetry",
-  "confidence": "high" | "medium" | "low",
-  "slash_amount": <int GEN to slash, 0 if no breach>
-}}
-"""
+        Return ONLY valid JSON with exactly these fields:
+        {{"verdict":"breach_confirmed"|"no_breach"|"partial_breach"|"inconclusive","breach_type":"uptime"|"latency"|"data_freshness"|"error_rate"|"multiple"|"","sla_term_violated":"exact quote or empty","measured_uptime":"value or unknown","measured_latency":"value or unknown","measured_error_rate":"value or unknown","reasoning":"3-4 sentences","confidence":"high"|"medium"|"low","slash_amount":0}}
+        """
             result = gl.nondet.exec_prompt(prompt).strip()
             cleaned = result.replace("```json", "").replace("```", "").strip()
+            if cleaned.startswith('"') and cleaned.endswith('"'):
+                cleaned = cleaned[1:-1].replace('\\"', '"')
+
             try:
                 parsed = json.loads(cleaned)
-                verdict = parsed.get("verdict", "inconclusive")
+
+                verdict = str(parsed.get("verdict", "inconclusive")).lower()
                 if verdict not in ["breach_confirmed", "no_breach", "partial_breach", "inconclusive"]:
                     verdict = "inconclusive"
-                slash = min(max(0, int(parsed.get("slash_amount", 0))), max_penalty)
+
+                # Enforce internal consistency — no contradiction
+                if verdict == "no_breach":
+                    breach_type = ""
+                    sla_violated = ""
+                    slash = 0
+                elif verdict == "inconclusive":
+                    breach_type = ""
+                    sla_violated = ""
+                    slash = 0
+                else:
+                    breach_type = str(parsed.get("breach_type", ""))
+                    if breach_type not in ["uptime", "latency", "data_freshness", "error_rate", "multiple"]:
+                        breach_type = ""
+                    sla_violated = str(parsed.get("sla_term_violated", ""))
+                    slash = min(max(0, int(parsed.get("slash_amount", penalty))), max_penalty)
+
                 return json.dumps({
                     "verdict": verdict,
-                    "breach_type": str(parsed.get("breach_type", "")),
-                    "sla_term_violated": str(parsed.get("sla_term_violated", "")),
+                    "breach_type": breach_type,
+                    "sla_term_violated": sla_violated,
                     "measured_uptime": str(parsed.get("measured_uptime", "unknown")),
                     "measured_latency": str(parsed.get("measured_latency", "unknown")),
                     "measured_error_rate": str(parsed.get("measured_error_rate", "unknown")),
-                    "reasoning": str(parsed.get("reasoning", "")),
+                    "reasoning": str(parsed.get("reasoning", ""))[:400],
                     "confidence": str(parsed.get("confidence", "medium")),
                     "slash_amount": slash
                 }, sort_keys=True, separators=(',', ':'))
+
             except:
                 return json.dumps({
                     "verdict": "inconclusive",
@@ -851,11 +861,8 @@ Return ONLY valid JSON:
 
         raw = gl.eq_principle.prompt_non_comparative(
             run_arbitration,
-            task="Evaluate an infrastructure SLA breach dispute using telemetry data and evidence",
-            criteria="""Base verdict strictly on telemetry data and evidence.
-Confirm breach only if data clearly shows SLA thresholds were exceeded.
-Be precise about which metrics were violated and by how much.
-Slash amount must be proportional to breach severity."""
+            task="Evaluate an infrastructure SLA breach dispute using telemetry and evidence",
+            criteria="Base verdict strictly on telemetry data. Confirm breach only if data clearly shows thresholds exceeded. Slash amount must be proportional to severity."
         )
 
         try:
@@ -871,11 +878,8 @@ Slash amount must be proportional to breach severity."""
             slash_amount = int(data.get("slash_amount", 0))
         except:
             verdict = "inconclusive"
-            breach_type = ""
-            sla_violated = ""
-            uptime_measured = "unknown"
-            latency_measured = "unknown"
-            error_measured = "unknown"
+            breach_type = sla_violated = ""
+            uptime_measured = latency_measured = error_measured = "unknown"
             reasoning = "Arbitration consensus failed"
             confidence = "low"
             slash_amount = 0
@@ -883,10 +887,7 @@ Slash amount must be proportional to breach severity."""
         if verdict not in ["breach_confirmed", "no_breach", "partial_breach", "inconclusive"]:
             verdict = "inconclusive"
 
-        slash_amount = min(
-            slash_amount,
-            int(self.agreements[d.agreement_id].sla_terms.max_penalty_per_dispute)
-        )
+        slash_amount = min(slash_amount, max_penalty)
 
         self.verdict_counter += i32(1)
         verdict_id = f"verdict_{self.verdict_counter}"
@@ -912,33 +913,26 @@ Slash amount must be proportional to breach severity."""
         self.disputes[dispute_id].status = "verdict_rendered"
         self.disputes[dispute_id].resolved_at = gl.message_raw["datetime"]
 
-        provider_wallet = d.respondent
-        claimant_wallet = d.claimant
-
         if verdict in ["breach_confirmed", "partial_breach"] and slash_amount > 0:
-            provider = self.providers[provider_wallet]
+            provider = self.providers[respondent]
             actual_slash = min(slash_amount, int(provider.staked_gen))
 
-            self.providers[provider_wallet].staked_gen -= i32(actual_slash)
-            self.providers[provider_wallet].total_slashes += i32(1)
-            self.providers[provider_wallet].total_slashed_gen += i32(actual_slash)
-            self.providers[provider_wallet].reputation_score -= i32(15)
+            self.providers[respondent].staked_gen -= i32(actual_slash)
+            self.providers[respondent].total_slashes += i32(1)
+            self.providers[respondent].total_slashed_gen += i32(actual_slash)
+            self.providers[respondent].reputation_score -= i32(15)
 
             self.disputes[dispute_id].slash_executed = True
             self.disputes[dispute_id].slashed_amount = i32(actual_slash)
+            self.clients[claimant].total_disputes_won += i32(1)
 
-            self.clients[claimant_wallet].total_disputes_won += i32(1)
-
-            
-            _Recipient(Address(claimant_wallet)).emit_transfer(
+            _Recipient(Address(claimant)).emit_transfer(
                 value=u256(actual_slash) * u256(10**18)
             )
-
         else:
-            
             self.agreements[d.agreement_id].status = "active"
-            if int(self.providers[provider_wallet].reputation_score) < 100:
-                self.providers[provider_wallet].reputation_score += i32(2)
+            if int(self.providers[respondent].reputation_score) < 100:
+                self.providers[respondent].reputation_score += i32(2)
 
     # ─── Appeal ───────────────────────────────────────────────
 
@@ -1014,7 +1008,7 @@ Return ONLY valid JSON:
 }}
 """
             result = gl.nondet.exec_prompt(prompt).strip()
-            cleaned = result.replace("```json", "").replace("```", "").strip()
+            cleaned = result.replace("json", "").replace("", "").strip()
             try:
                 parsed = json.loads(cleaned)
                 verdict = parsed.get("verdict", "breach_confirmed")
@@ -1081,7 +1075,6 @@ Return ONLY valid JSON:
         self.disputes[dispute_id].resolved_at = gl.message_raw["datetime"]
 
         if verdict == "no_breach":
-            
             original_slash = int(d.slashed_amount)
             if original_slash > 0:
                 self.providers[d.respondent].staked_gen += i32(original_slash)
@@ -1102,6 +1095,7 @@ Return ONLY valid JSON:
         self._only_admin()
         self.min_provider_stake = new_min
 
+    # ─── Read Methods ─────────────────────────────────────────
 
     @gl.public.view
     def get_provider(self, wallet: str) -> Provider:

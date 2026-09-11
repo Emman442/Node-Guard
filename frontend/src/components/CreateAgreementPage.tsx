@@ -33,15 +33,14 @@ export default function CreateAgreementPage({
 
   // Form inputs
   const [name, setName] = useState("");
-  const [type, setType] = useState<"RPC NODE" | "GPU CLUSTER" | "INDEXER" | "API" | "OTHER">("RPC NODE");
+  const [type, setType] = useState<"RPC_NODE" | "GPU_CLUSTER" | "INDEXER" | "API" | "OTHER">("RPC_NODE");
   const [endpoint, setEndpoint] = useState("");
   
-  // Destructure isPending (aliased or used directly) and mutate
   const { isPending: isCreatingAgreement, mutate: createAgreement } = useCreateAgreement();
 
-  // Local transaction state management (linked to hook lifecycle if needed)
   const [txState, setTxState] = useState<TxState>({ status: "idle" });
 
+  console.log(type.toLowerCase())
   // SLA thresholds
   const [uptimeRequired, setUptimeRequired] = useState("99.9");
   const [maxLatency, setMaxLatency] = useState("200");
@@ -58,7 +57,7 @@ export default function CreateAgreementPage({
 
   // Telemetry sources selected
   const [selectedSources, setSelectedSources] = useState<string[]>(
-    telemetrySources.slice(0, 2).map((s) => s.source_id) // Adjusted from .id to .source_id to match type definitions
+    telemetrySources.slice(0, 2).map((s) => s.source_id)
   );
 
   // Duration & Fees
@@ -230,7 +229,7 @@ export default function CreateAgreementPage({
               <div className="space-y-1.5">
                 <label className="text-xs font-mono text-[#737373] uppercase block">INFRASTRUCTURE TYPE</label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {(["RPC NODE", "GPU CLUSTER", "INDEXER", "API", "OTHER"] as const).map((t) => (
+                  {(["RPC_NODE", "GPU_CLUSTER", "INDEXER", "API", "OTHER"] as const).map((t) => (
                     <button
                       type="button"
                       key={t}
@@ -428,7 +427,7 @@ export default function CreateAgreementPage({
                 Choose the independent monitoring endpoints the AI validators must query to pull raw telemetry performance data during disputes.
               </div>
               <div className="space-y-2">
-                {telemetrySources.map((source) => (
+                {telemetrySources?.map((source) => (
                   <label
                     key={source.source_id}
                     className="flex items-start gap-3 bg-[#090909] border border-[#1a1a1a] p-3 cursor-pointer hover:border-[#262626] transition-colors"

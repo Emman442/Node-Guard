@@ -131,6 +131,20 @@ export function useFetchClientAgreements(wallet: string | null) {
   });
 }
 
+export function useFetchEvidence(evidenceId: string | null) {
+  const contract = useNodeGuardContract();
+
+  return useQuery<DisputeEvidence, Error>({
+    queryKey: ["evidence", evidenceId],
+    queryFn: async () => {
+      if (!evidenceId) throw new Error("Evidence ID not provided");
+      if (!contract) throw new Error("Contract not initialized");
+      return await contract.getEvidence(evidenceId);
+    },
+    enabled: !!evidenceId && !!contract,
+  });
+}
+
 
 
 export function useFetchTelemetryReading(readingId: string | null) {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FileText, AlertTriangle, ShieldCheck, RefreshCw } from "lucide-react";
 import { Provider, Agreement, Dispute } from "../lib/contract/types";
+import { useAddStake } from "../lib/hooks/useNodeGuard";
 
 interface DashboardPageProps {
   connectedWallet: string;
@@ -10,8 +11,7 @@ interface DashboardPageProps {
   clientDisputes: Dispute[];
   providerDisputes: Dispute[];
   onNavigate: (view: string, params?: any) => void;
-  onAddStake: (amount: number) => void;
-  onRefresh: () => void;
+  triggerToast: (title: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
 }
 
 export default function DashboardPage({
@@ -22,27 +22,28 @@ export default function DashboardPage({
   clientDisputes,
   providerDisputes,
   onNavigate,
-  onAddStake,
-  onRefresh
+  triggerToast,
 }: DashboardPageProps) {
   const [activeRoleTab, setActiveRoleTab] = useState<"client" | "provider">(
     providerProfile ? "provider" : "client"
   );
   const [stakeAmountInput, setStakeAmountInput] = useState<string>("");
   const [isSubmittingStake, setIsSubmittingStake] = useState(false);
-
+  const { isPending: isAddingStake, mutate: AddStake } = useAddStake();
   const handleAddStakeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stakeAmountInput || isNaN(Number(stakeAmountInput)) || Number(stakeAmountInput) <= 0) return;
-    setIsSubmittingStake(true);
-    try {
-      await onAddStake(Number(stakeAmountInput));
-      setStakeAmountInput("");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmittingStake(false);
-    }
+    AddStake(Number(stakeAmountInput), {
+      onSuccess: (data: any) => {
+        setStakeAmountInput("");
+        triggerToast("Stake added successfully!", "Stake added successfully!", "success");
+      },
+      onError: (err: any) => {
+        triggerToast("Failed to add stake.", "Failed to add stake.", "error");
+      },
+    });
+
+
   };
 
   const getStatusColor = (status: string) => {
@@ -100,32 +101,25 @@ export default function DashboardPage({
             CONNECTED WALLET: <span className="text-white">{connectedWallet}</span>
           </p>
         </div>
-        <button
-          onClick={onRefresh}
-          className="border border-[#1a1a1a] hover:border-[#06b6d4] hover:text-[#06b6d4] text-[#737373] px-4 py-2 font-mono text-xs flex items-center gap-2 cursor-pointer transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> REFETCH DATA
-        </button>
+
       </div>
 
       <div className="flex border-b border-[#1a1a1a] gap-2">
         <button
           onClick={() => setActiveRoleTab("client")}
-          className={`px-6 py-3 font-heading font-bold text-sm tracking-wider uppercase border-b-2 cursor-pointer transition-all duration-100 ${
-            activeRoleTab === "client"
-              ? "text-[#06b6d4] border-[#06b6d4] bg-[#0e0e0e]/30"
-              : "text-[#737373] border-transparent hover:text-white"
-          }`}
+          className={`px-6 py-3 font-heading font-bold text-sm tracking-wider uppercase border-b-2 cursor-pointer transition-all duration-100 ${activeRoleTab === "client"
+            ? "text-[#06b6d4] border-[#06b6d4] bg-[#0e0e0e]/30"
+            : "text-[#737373] border-transparent hover:text-white"
+            }`}
         >
           CLIENT OPERATIONS ({clientAgreements.length})
         </button>
         <button
           onClick={() => setActiveRoleTab("provider")}
-          className={`px-6 py-3 font-heading font-bold text-sm tracking-wider uppercase border-b-2 cursor-pointer transition-all duration-100 ${
-            activeRoleTab === "provider"
-              ? "text-[#06b6d4] border-[#06b6d4] bg-[#0e0e0e]/30"
-              : "text-[#737373] border-transparent hover:text-white"
-          }`}
+          className={`px-6 py-3 font-heading font-bold text-sm tracking-wider uppercase border-b-2 cursor-pointer transition-all duration-100 ${activeRoleTab === "provider"
+            ? "text-[#06b6d4] border-[#06b6d4] bg-[#0e0e0e]/30"
+            : "text-[#737373] border-transparent hover:text-white"
+            }`}
         >
           PROVIDER OPERATIONS {providerProfile ? `(STAKED)` : `(UNREGISTERED)`}
         </button>
@@ -380,10 +374,10 @@ export default function DashboardPage({
                   </div>
                   <button
                     type="submit"
-                    disabled={isSubmittingStake}
+                    disabled={isAddingStake}
                     className="bg-[#06b6d4] text-black px-6 py-2.5 font-heading text-xs font-bold uppercase tracking-wider hover:bg-[#67e8f9] transition-colors cursor-pointer w-full sm:w-auto"
                   >
-                    {isSubmittingStake ? "STAKING..." : "ADD STAKE"}
+                    {isAddingStake ? "STAKING..." : "ADD STAKE"}
                   </button>
                 </form>
               </div>
